@@ -68,6 +68,7 @@ private struct RuleInfoHeader: View {
     private var methodText: String {
         switch rule.method {
         case .delete: "Deleted outright (a cache in the Trash frees nothing)."
+        case .deleteContents: "Contents deleted outright; each app's folder itself is kept, since the app expects it."
         case .trash: "Moved to the Trash, so you can still put it back."
         case .command(let argv): "By the owning tool: \(argv.joined(separator: " "))"
         case .reportOnly: "Report only. Major Tom shows it but never removes it."

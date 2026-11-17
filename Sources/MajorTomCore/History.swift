@@ -9,7 +9,14 @@ public struct HistoryEntry: Codable, Sendable, Identifiable {
         public var method: String
         public var estimatedBytes: Int64?
         public var succeeded: Bool
+        /// User-facing reason (with what to do) when it failed or was only partly removed.
         public var error: String?
+        /// True when part of it was removed and part left behind (`succeeded` is false then).
+        public var partial: Bool? = nil
+        /// What was left behind and why (deletes only; capped).
+        public var leftBehind: [LeftBehind]? = nil
+        /// The raw error(s) behind `error`, e.g. "rmdir: Directory not empty (errno 66)".
+        public var underlyingError: String? = nil
     }
 
     public var id: UUID

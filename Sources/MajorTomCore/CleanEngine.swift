@@ -36,6 +36,8 @@ public struct CleanOutcome: Sendable, Codable {
     public enum Status: Sendable, Codable, Equatable {
         case wouldClean
         case cleaned
+        /// Some of it was removed, some couldn't be (see `leftBehind`); the text says what and what to do.
+        case partial(String)
         case skipped(String)
         case failed(String)
     }
@@ -47,6 +49,22 @@ public struct CleanOutcome: Sendable, Codable {
     public var method: CleanMethod
     public var estimatedBytes: Int64?
     public var status: Status
+    /// Entries a delete couldn't remove (partial or failed deletes), each with advice.
+    public var leftBehind: [LeftBehind] = []
+    /// All entries left behind (`leftBehind` is capped) and their allocated bytes.
+    public var leftBehindCount = 0
+    public var leftBehindBytes: Int64 = 0
+    /// The raw error(s) behind a failure or partial result, for History.
+    public var underlyingError: String?
+
+    /// Allocated bytes the delete actually removed (nil when part of it went to the Trash instead).
+    public var removedBytes: Int64?
+
+    /// Scan estimate minus what was left behind, for partial outcomes; never more than was actually removed
+    /// (a folder that couldn't be opened counts 0 bytes left behind).
+    var removedEstimate: Int64 {
+        min(max(0, (estimatedBytes ?? 0) - leftBehindBytes), removedBytes ?? .max)
+    }
 }
 
 public struct CleanReport: Sendable, Codable {
@@ -125,8 +143,8 @@ public struct CleanEngine: Sendable {
                 var outcome = CleanOutcome(ruleID: rule.id, itemID: item.id, displayName: item.displayName,
                                            path: item.path?.path, method: method,
                                            estimatedBytes: sizes[itemID] ?? item.size, status: .wouldClean)
-                outcome.status = await perform(item: item, method: method, bases: bases, trashOnly: rule.isTrashOnly,
-                                               execute: execute)
+                await perform(item: item, method: method, bases: bases, trashOnly: rule.isTrashOnly,
+                              execute: execute, into: &outcome)
                 record(outcome)
             }
         }
@@ -168,8 +186,13 @@ public struct CleanEngine: Sendable {
     }
 
     private func finish(outcomes: [CleanOutcome], ruleIDs: [String], before: Int64, execute: Bool) async -> CleanReport {
-        let counted: Set<CleanOutcome.Status> = execute ? [.cleaned] : [.wouldClean]
-        let estimate = outcomes.filter { counted.contains($0.status) }.reduce(Int64(0)) { $0 + ($1.estimatedBytes ?? 0) }
+        let estimate = outcomes.reduce(Int64(0)) { sum, o in
+            switch o.status {
+            case .wouldClean where !execute, .cleaned where execute: sum + (o.estimatedBytes ?? 0)
+            case .partial where execute: sum + o.removedEstimate
+            default: sum
+            }
+        }
         guard execute else {
             return CleanReport(dryRun: true, outcomes: outcomes, estimatedBytes: estimate, reclaimedBytes: nil)
         }
@@ -180,11 +203,18 @@ public struct CleanEngine: Sendable {
                 id: UUID(), date: Date(), ruleIDs: Array(Set(ruleIDs)).sorted(),
                 items: attempted.map {
                     var error: String?
-                    if case .failed(let e) = $0.status { error = e }
+                    var partial: Bool?
+                    switch $0.status {
+                    case .failed(let e): error = e
+                    case .partial(let e): error = e; partial = true
+                    default: break
+                    }
                     return HistoryEntry.ItemRecord(ruleID: $0.ruleID, itemID: $0.itemID, displayName: $0.displayName,
                                                    path: $0.path, method: $0.method.summary,
                                                    estimatedBytes: $0.estimatedBytes, succeeded: $0.status == .cleaned,
-                                                   error: error)
+                                                   error: error, partial: partial,
+                                                   leftBehind: $0.leftBehind.isEmpty ? nil : $0.leftBehind,
+                                                   underlyingError: $0.underlyingError)
                 },
                 estimatedBytes: estimate, reclaimedBytes: reclaimed)
             try? history.append(entry)
@@ -192,19 +222,20 @@ public struct CleanEngine: Sendable {
         return CleanReport(dryRun: false, outcomes: outcomes, estimatedBytes: estimate, reclaimedBytes: reclaimed)
     }
 
-    private func perform(item: Item, method: CleanMethod, bases: [URL], trashOnly: Bool,
-                         execute: Bool) async -> CleanOutcome.Status {
-        if item.isProtected { return .skipped("protected: \(item.note ?? "never offered")") }
+    private func perform(item: Item, method: CleanMethod, bases: [URL], trashOnly: Bool, execute: Bool,
+                         into outcome: inout CleanOutcome) async {
+        if item.isProtected { outcome.status = .skipped("protected: \(item.note ?? "never offered")"); return }
         if trashOnly, method != .trash {
-            return .skipped("refused: this rule only ever moves items to the Trash (got \(method.summary))")
+            outcome.status = .skipped("refused: this rule only ever moves items to the Trash (got \(method.summary))")
+            return
         }
         switch method {
         case .reportOnly:
-            return .skipped("report only")
+            outcome.status = .skipped("report only")
         case .command(let argv):
-            return execute ? await runCommand(argv) : .wouldClean
-        case .delete, .trash:
-            guard let path = item.path else { return .skipped("no path") }
+            outcome.status = execute ? await runCommand(argv) : .wouldClean
+        case .delete, .deleteContents, .trash:
+            guard let path = item.path else { outcome.status = .skipped("no path"); return }
             let paths = [path] + item.companionPaths
             do {
                 for p in paths {
@@ -212,29 +243,82 @@ public struct CleanEngine: Sendable {
                     if trashOnly { try validator.validateUserFile(p, bases: bases) }
                 }
             } catch {
-                return .skipped("refused: \(error.description)")
+                outcome.status = .skipped("refused: \(error.description)")
+                return
             }
-            guard execute else { return .wouldClean }
-            do {
-                for p in paths {
+            guard execute else { outcome.status = .wouldClean; return }
+            var removal = TreeRemoval()
+            var trashedAny = false
+            for p in paths {
+                do {
                     // Re-validate right before touching each path.
                     try validator.validate(p, bases: bases)
-                    if trashOnly {
-                        try validator.validateUserFile(p, bases: bases)
+                    if trashOnly || method == .trash {
+                        if trashOnly { try validator.validateUserFile(p, bases: bases) }
                         try remover.trash(p)
-                    } else if method == .delete {
-                        try remover.delete(p)
+                        removal.removedEntries += 1
+                        trashedAny = true
                     } else {
-                        try remover.trash(p)
+                        // Entry by entry, never following symlinks; carries on past what it can't remove.
+                        let r = remover.delete(p, keepingFolder: method == .deleteContents && p == path)
+                        removal.removedEntries += r.removedEntries
+                        removal.removedBytes += r.removedBytes
+                        removal.leftCount += r.leftCount
+                        removal.leftBytes += r.leftBytes
+                        removal.leftBehind += r.leftBehind
                     }
+                } catch let e as PathValidationError {
+                    // Nothing removed yet for this path; refuse it (earlier paths of the item may be gone).
+                    if removal.removedEntries == 0 && removal.leftCount == 0 {
+                        outcome.status = .skipped("refused: \(e.description)")
+                        return
+                    }
+                    removal.leftCount += 1
+                    removal.leftBehind.append(LeftBehind(path: p.path, errno: 0, advice: "refused: \(e.description)",
+                                                         underlying: "path validation"))
+                } catch {
+                    let (advice, underlying) = RemovalAdvice.advice(for: error, path: p.path)
+                    removal.leftCount += 1
+                    removal.leftBehind.append(LeftBehind(path: p.path, errno: 0, advice: advice, underlying: underlying))
                 }
-                return .cleaned
-            } catch let e as PathValidationError {
-                return .skipped("refused: \(e.description)")
-            } catch {
-                return .failed(error.localizedDescription)
+            }
+            outcome.leftBehind = removal.leftBehind
+            outcome.leftBehindCount = removal.leftCount
+            outcome.leftBehindBytes = removal.leftBytes
+            outcome.removedBytes = trashedAny ? nil : removal.removedBytes
+            outcome.status = Self.status(for: removal, itemPath: path)
+            if !removal.isComplete {
+                outcome.underlyingError = removal.leftBehind
+                    .map { "\(displayPath($0.path)): \($0.underlying)" }.joined(separator: "; ")
             }
         }
+    }
+
+    private func displayPath(_ p: String) -> String {
+        let h = context.home.standardizedFileURL.path(percentEncoded: false).replacing(/\/+$/, with: "")
+        return p.hasPrefix(h + "/") ? "~" + p.dropFirst(h.count) : p
+    }
+
+    /// `.cleaned`, `.partial` (something removed, something left) or `.failed` (nothing removed).
+    static func status(for removal: TreeRemoval, itemPath: URL) -> CleanOutcome.Status {
+        guard !removal.isComplete else { return .cleaned }
+        let first = removal.leftBehind.first
+        // Group by advice so one cause shows once, with the entries it affects.
+        var advices: [String] = []
+        for l in removal.leftBehind where !advices.contains(l.advice) { advices.append(l.advice) }
+        let base = itemPath.path(percentEncoded: false)
+        func rel(_ p: String) -> String {
+            p == base ? itemPath.lastPathComponent : (p.hasPrefix(base + "/") ? String(p.dropFirst(base.count + 1)) : p)
+        }
+        let what = removal.leftCount == 1
+            ? "“\(rel(first?.path ?? base))”"
+            : "\(removal.leftCount) entries (e.g. “\(rel(first?.path ?? base))”)"
+        let reasons = advices.prefix(3).joined(separator: "; ")
+        if removal.removedEntries == 0 {
+            return .failed("couldn't remove \(what): \(reasons)")
+        }
+        let freed = removal.removedBytes > 0 ? ", about \(ByteFormat.string(removal.removedBytes)) freed" : ""
+        return .partial("removed \(removal.removedEntries) entr\(removal.removedEntries == 1 ? "y" : "ies")\(freed); left \(what): \(reasons)")
     }
 
     private func runCommand(_ argv: [String]) async -> CleanOutcome.Status {
@@ -251,14 +335,21 @@ extension CleanOutcome.Status: Hashable {}
 
 /// The only two ways the engine removes a path.
 public protocol FileRemover: Sendable {
-    func delete(_ url: URL) throws
+    /// Deletes `url` entry by entry without following symlinks (`TreeRemover`), carrying on past anything it
+    /// can't remove; `keepingFolder` empties a folder and leaves it in place.
+    func delete(_ url: URL, keepingFolder: Bool) -> TreeRemoval
     func trash(_ url: URL) throws
 }
 
-/// The real thing: `removeItem` / Finder's Trash.
+extension FileRemover {
+    public func delete(_ url: URL, keepingFolder: Bool) -> TreeRemoval {
+        TreeRemover.remove(url, keepingFolder: keepingFolder)
+    }
+}
+
+/// The real thing: `TreeRemover` / Finder's Trash.
 public struct SystemFileRemover: FileRemover {
     public init() {}
-    public func delete(_ url: URL) throws { try FileManager.default.removeItem(at: url) }
     public func trash(_ url: URL) throws { try FileManager.default.trashItem(at: url, resultingItemURL: nil) }
 }
 
@@ -266,8 +357,6 @@ public struct SystemFileRemover: FileRemover {
 public struct FolderTrashRemover: FileRemover {
     public let trashFolder: URL
     public init(trashFolder: URL) { self.trashFolder = trashFolder }
-
-    public func delete(_ url: URL) throws { try FileManager.default.removeItem(at: url) }
 
     public func trash(_ url: URL) throws {
         try FileManager.default.createDirectory(at: trashFolder, withIntermediateDirectories: true)

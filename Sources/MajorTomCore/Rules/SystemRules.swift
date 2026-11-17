@@ -34,7 +34,8 @@ enum SystemRules {
         impact: "Apps rebuild their caches as you use them: a bit slower on first launch, thumbnails/web content re-downloaded. Quit an app before clearing its cache. Apple's own caches are skipped, and caches of apps you've removed are listed under Leftovers from removed apps instead.",
         recovery: "Automatically, as each app runs.",
         regenCost: "Slightly slower first launch per app.",
-        method: .delete,
+        // Each app's cache folder is emptied but kept: apps (and their running helpers) expect it to exist.
+        method: .deleteContents,
         baseDirectories: { [$0.path("Library/Caches")] },
         resolve: { ctx in
             // Caches of removed apps belong to the (review-tier, Trash-only) orphaned-app-data item instead.
@@ -64,7 +65,8 @@ enum SystemRules {
         impact: "Old app logs and crash reports are gone, so you can't look back at past crashes/errors. Apps start new logs immediately.",
         recovery: "New logs are written as apps run.",
         regenCost: "None.",
-        method: .delete,
+        // Each app's log folder is emptied but kept: running apps (e.g. a booted simulator) keep writing there.
+        method: .deleteContents,
         baseDirectories: { [$0.path("Library/Logs")] },
         resolve: { ctx in childItems(ctx.path("Library/Logs"), directoriesOnly: false) }
     )

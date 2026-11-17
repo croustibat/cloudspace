@@ -48,7 +48,8 @@ enum Tier { case safe        // regenerates automatically, no user action needed
 struct Rule {
   id, title, category (xcode, android, javascript, packageManagers, ides, containers, system, projects, files)
   tier; impact; recovery; regenCost           // plain English, written for a developer
-  method: .delete | .trash | .command([String]) | .reportOnly   // items may override
+  method: .delete | .deleteContents | .trash | .command([String]) | .reportOnly   // items may override;
+                                               // .deleteContents empties a folder and keeps it
   baseDirectories(ctx) -> [URL]                // every resolved path must be inside one
   resolve(ctx) async throws -> [Item]          // path, companion paths, size, last used, note, protected/flagged
   actions(ctx, items) -> [RuleAction]          // rule-level commands (e.g. `pnpm store prune`); runnable or show-only
@@ -97,8 +98,8 @@ struct Rule {
 | JetBrains caches | `~/Library/Caches/JetBrains/*` | safe | older versions per product flagged |
 | Docker | `docker system df` | review | report only + show-only prune commands |
 | Claude desktop data | `~/Library/Application Support/Claude/*` | review | report only |
-| App caches | `~/Library/Caches/*` not covered above | safe | skips `com.apple.*`; removed apps' caches go to the orphan rule |
-| Logs | `~/Library/Logs/*` | safe | |
+| App caches | `~/Library/Caches/*` not covered above | safe | skips `com.apple.*`; removed apps' caches go to the orphan rule; contents deleted, folders kept |
+| Logs | `~/Library/Logs/*` | safe | contents deleted, folders kept |
 | Trash | `~/.Trash/*` | review | needs Full Disk Access |
 | Local snapshots | `tmutil listlocalsnapshots /` | review | report + show-only `tmutil deletelocalsnapshots` |
 | Large files | Downloads, Movies, Desktop, Documents ≥ 500 MB | review | Trash only |

@@ -125,6 +125,7 @@ private struct ReviewView: View {
         switch item.methodOverride {
         case .trash: "to Trash"
         case .command: "via tool"
+        case .deleteContents: "empty folder"
         default: "delete"
         }
     }
@@ -231,6 +232,7 @@ private struct PlanRow: View {
         switch status {
         case nil: ProgressView().controlSize(.mini)
         case .wouldClean?, .cleaned?: Image(systemName: "checkmark.circle").foregroundStyle(.secondary)
+        case .partial?: Image(systemName: "circle.lefthalf.filled").foregroundStyle(.orange)
         case .skipped?, .failed?: Image(systemName: "minus.circle").foregroundStyle(.orange)
         }
     }
@@ -265,6 +267,7 @@ private struct ResultView: View {
 
     var body: some View {
         let cleaned = report.outcomes.filter { $0.status == .cleaned }
+        let partial = report.outcomes.filter { if case .partial = $0.status { true } else { false } }
         let problems = report.outcomes.filter { $0.status != .cleaned }
         VStack(alignment: .leading, spacing: 0) {
             if problems.isEmpty { Spacer() }
@@ -276,7 +279,8 @@ private struct ResultView: View {
                 Text("Measured from free space before and after. Estimated from the scan: \(ByteFormat.string(report.estimatedBytes)).")
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                Text("\(cleaned.count) of \(report.outcomes.count) done · logged to History")
+                Text("\(cleaned.count) of \(report.outcomes.count) done"
+                     + (partial.isEmpty ? "" : ", \(partial.count) partly") + " · logged to History")
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
@@ -285,10 +289,7 @@ private struct ResultView: View {
             if !problems.isEmpty {
                 Divider()
                 List(problems, id: \.itemID) { o in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(o.displayName)
-                        Text(statusText(o.status)).font(.caption).foregroundStyle(.orange)
-                    }
+                    ProblemRow(outcome: o, statusText: statusText(o.status))
                 }
                 .listStyle(.inset)
             } else {
@@ -313,8 +314,60 @@ private struct ResultView: View {
         switch s {
         case .skipped(let why): "Skipped: \(why)"
         case .failed(let why): "Failed: \(why)"
+        case .partial(let what): "Partly done: \(what)"
         case .cleaned: "Done"
         case .wouldClean: "Not run"
         }
+    }
+}
+
+/// A result row for anything not fully done: the reason, then (for deletes) each entry left behind and what to do.
+private struct ProblemRow: View {
+    let outcome: CleanOutcome
+    let statusText: String
+    @State private var expanded = false
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: icon).foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(outcome.displayName)
+                Text(statusText).font(.caption).foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+                if outcome.leftBehindCount > 0 {
+                    DisclosureGroup(isExpanded: $expanded) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(outcome.leftBehind, id: \.self) { left in
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(left.path).font(.caption.monospaced()).lineLimit(1).truncationMode(.middle)
+                                    Text(left.advice).font(.caption).fixedSize(horizontal: false, vertical: true)
+                                    Text(left.underlying).font(.caption2).foregroundStyle(.secondary)
+                                }
+                                .textSelection(.enabled)
+                            }
+                            if outcome.leftBehindCount > outcome.leftBehind.count {
+                                Text("… and \(outcome.leftBehindCount - outcome.leftBehind.count) more")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    } label: {
+                        Text(leftLabel).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var icon: String {
+        if case .partial = outcome.status { return "circle.lefthalf.filled" }
+        return "exclamationmark.circle"
+    }
+
+    private var leftLabel: String {
+        let n = outcome.leftBehindCount
+        let size = outcome.leftBehindBytes > 0 ? " (\(ByteFormat.string(outcome.leftBehindBytes)))" : ""
+        return "\(n) entr\(n == 1 ? "y" : "ies") left behind\(size)"
     }
 }

@@ -44,15 +44,30 @@ private struct HistoryRow: View {
         DisclosureGroup(isExpanded: $expanded) {
             ForEach(Array(entry.items.enumerated()), id: \.offset) { _, item in
                 HStack(alignment: .firstTextBaseline) {
-                    Image(systemName: item.succeeded ? "checkmark.circle" : "xmark.circle")
-                        .foregroundStyle(item.succeeded ? Color.secondary : Color.red)
+                    Image(systemName: item.succeeded ? "checkmark.circle"
+                          : item.partial == true ? "circle.lefthalf.filled" : "xmark.circle")
+                        .foregroundStyle(item.succeeded ? Color.secondary : item.partial == true ? Color.orange : Color.red)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(item.displayName)
                         Text([ruleTitle(item.ruleID), item.method, item.path].compactMap { $0 }.joined(separator: " · "))
                             .font(.caption).foregroundStyle(.secondary)
                             .lineLimit(1).truncationMode(.middle)
                         if let error = item.error {
-                            Text(error).font(.caption).foregroundStyle(.red)
+                            Text(item.partial == true ? "Partly done: \(error)" : error)
+                                .font(.caption).foregroundStyle(item.partial == true ? Color.orange : Color.red)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .textSelection(.enabled)
+                        }
+                        ForEach(item.leftBehind ?? [], id: \.self) { left in
+                            Text("Left: \(left.path) — \(left.advice)")
+                                .font(.caption).foregroundStyle(.secondary)
+                                .lineLimit(2).truncationMode(.middle)
+                                .textSelection(.enabled)
+                        }
+                        if let underlying = item.underlyingError {
+                            Text(underlying).font(.caption2.monospaced()).foregroundStyle(.secondary)
+                                .lineLimit(3).truncationMode(.tail)
+                                .textSelection(.enabled)
                         }
                     }
                     Spacer()

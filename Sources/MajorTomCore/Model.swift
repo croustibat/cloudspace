@@ -50,6 +50,9 @@ public enum RuleCategory: String, Codable, Sendable, CaseIterable {
 public enum CleanMethod: Codable, Sendable, Hashable {
     /// Delete outright (caches: trashing a cache frees nothing).
     case delete
+    /// Delete everything inside the folder and keep the (empty) folder, for folders an app expects to exist
+    /// (e.g. `~/Library/Logs/<App>`). A file item is simply deleted.
+    case deleteContents
     /// Move to the Trash (review-tier user data).
     case trash
     /// Run the owning tool's command (argv, no shell).
@@ -60,6 +63,7 @@ public enum CleanMethod: Codable, Sendable, Hashable {
     public var summary: String {
         switch self {
         case .delete: "delete"
+        case .deleteContents: "delete contents (keeps the folder)"
         case .trash: "move to Trash"
         case .command(let argv): "run `\(argv.joined(separator: " "))`"
         case .reportOnly: "report only"

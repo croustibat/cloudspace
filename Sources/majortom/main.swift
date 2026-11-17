@@ -187,10 +187,17 @@ func cleanCommand(_ args: Args) async throws {
         let status: String = switch o.status {
         case .wouldClean: "would \(o.method.summary)"
         case .cleaned: "done: \(o.method.summary)"
+        case .partial(let what): "PARTLY done: \(what)"
         case .skipped(let why): "skipped: \(why)"
         case .failed(let why): "FAILED: \(why)"
         }
         print("  \(lpad(fmt(o.estimatedBytes), 9))  \(pad(o.displayName, 48))  \(status)")
+        for left in o.leftBehind {
+            print("             left: \(left.path) — \(left.advice) [\(left.underlying)]")
+        }
+        if o.leftBehindCount > o.leftBehind.count {
+            print("             … and \(o.leftBehindCount - o.leftBehind.count) more left behind")
+        }
     }
     print("Estimated: \(fmt(report.estimatedBytes))")
     if let r = report.reclaimedBytes { print("Measured free-space change: \(fmt(r))") }

@@ -430,7 +430,7 @@ public enum FixtureRules {
     static let logs = Rule(
         id: "fx-logs", title: "Logs (fixture)", category: .system, tier: .safe,
         impact: "Old app logs are gone.", recovery: "Apps write new logs as they run.", regenCost: "None.",
-        method: .delete,
+        method: .deleteContents,
         baseDirectories: { [$0.path("Library/Logs")] },
         resolve: { ctx in childItems(ctx.path("Library/Logs"), directoriesOnly: false) })
 

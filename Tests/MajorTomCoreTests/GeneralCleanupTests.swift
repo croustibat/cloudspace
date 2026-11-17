@@ -11,9 +11,9 @@ final class RecordingRemover: FileRemover, @unchecked Sendable {
 
     init(trashFolder: URL) { folder = FolderTrashRemover(trashFolder: trashFolder) }
 
-    func delete(_ url: URL) throws {
+    func delete(_ url: URL, keepingFolder: Bool) -> TreeRemoval {
         lock.withLock { _deleted.append(url) }
-        try FileManager.default.removeItem(at: url)
+        return TreeRemover.remove(url, keepingFolder: keepingFolder)
     }
 
     func trash(_ url: URL) throws {

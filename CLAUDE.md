@@ -138,4 +138,8 @@ default), mutate via `GroundControlModel.updateSettings`; add to `fileRulesDiffe
 - SwiftUI: vertically `fixedSize` text above a `List` draws the window blank; mutating the model inside a sidebar
   selection change trips NSTableView reentrancy — `await Task.yield()` first; rebuild tables via `.id(...)` rather
   than animating rows while sizes stream in. A remembered frame on a sleeping display stops rendering.
+- Deletes go through `TreeRemover` (fd-relative, `O_NOFOLLOW`, never crosses volumes), not `FileManager.removeItem`:
+  removeItem stops at the first failure and reports a folder refilled mid-delete (ENOTEMPTY, e.g. a booted
+  simulator's `~/Library/Logs/CoreSimulator/<UDID>`) as "you don't have permission". What can't be removed comes back
+  as `.partial`/`.failed` with `LeftBehind` entries whose advice (`RemovalAdvice`) says what to do.
 - Synology recycle bin: deletions on the share land in `#recycle`; Major Tom never touches it.
