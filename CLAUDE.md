@@ -14,8 +14,12 @@ large/old files and removed apps' leftovers, and offloads to a NAS. `SPEC.md` is
   offload, `SpaceWatch`, `CleanPlan`), `AppEnvironment` (live vs fixture). No SwiftUI.
 - `Sources/MajorTomApp` — SwiftUI views only; `Snapshotter` (dev screenshots), `SystemServices` (notifications,
   login item). Logic belongs in GroundControl/Core so it can be tested.
-- `Sources/majortom` — CLI (hand-rolled args). Read-only except `clean --execute`.
-- `Tests/MajorTomCoreTests`, `Tests/GroundControlTests` — Swift Testing, fixture homes in `$TMPDIR` only.
+- `Sources/MajorTomCLI` — the CLI's strict argument parser (per-command allowed flags in `CLI.commands`, usage
+  text) and `CleanSelection` (`--item`/`--flagged` → exact items). Unknown/misspelt flags, missing values, repeated
+  single-value flags and stray arguments are errors; a filter that matches nothing fails, never widens to the rule.
+- `Sources/majortom` — CLI commands (`main.swift`). Read-only except `clean --execute`.
+- `Tests/MajorTomCoreTests`, `Tests/GroundControlTests`, `Tests/MajorTomCLITests` — Swift Testing, fixture homes in
+  `$TMPDIR` only.
 
 ## Hard safety rules (also while developing)
 

@@ -1,65 +1,10 @@
 import Foundation
 import MajorTomCore
+import MajorTomCLI
 
-// Minimal argument handling (no third-party dependency needed for four subcommands).
+// Argument parsing, per-command usage and `clean`'s item selection live in MajorTomCLI (unit-tested).
 
-let usage = """
-majortom — Ground Control's command line
-
-USAGE
-  majortom scan [--rule <id>]... [--items] [--json] [--large-mb N] [--old-days N] [--old-min-mb N]
-  majortom rules [--json]
-  majortom clean --rule <id> [--item <id>]... [--flagged] [--action <id>] [--execute] [--json]
-  majortom history [--json]
-  majortom projects [--stale] [--dirs] [--json]
-  majortom offload [--candidates] [--json]
-
-clean is a DRY RUN unless --execute is given. Without --item, every cleanable
-item of the rule is selected (protected and report-only items are never touched).
-
-projects lists projects under the configured roots with their strippable
-directories (sizes, restore commands, git warnings). It never changes anything;
-hibernating is done from the app's review sheet.
-
-offload shows whether the NAS destination is a mounted network share, and what
-has been offloaded (with each archive's restore command). --candidates also lists
-what could be offloaded (stale projects, Xcode Archives, large cold files) with
-sizes. It never copies, moves or deletes anything; offloading and restoring are
-done from the app.
-
---large-mb / --old-days / --old-min-mb override the Files thresholds from Settings
-for this run only (they are not saved).
-"""
-
-struct Args {
-    var command: String
-    var flags: Set<String> = []
-    var values: [String: [String]] = [:]
-
-    init(_ argv: [String]) throws {
-        var rest = argv.dropFirst()
-        guard let cmd = rest.first else { throw CLIError(usage) }
-        command = cmd
-        rest = rest.dropFirst()
-        let valued: Set<String> = ["--rule", "--item", "--action", "--large-mb", "--old-days", "--old-min-mb"]
-        while let a = rest.first {
-            rest = rest.dropFirst()
-            if valued.contains(a) {
-                guard let v = rest.first else { throw CLIError("\(a) needs a value") }
-                rest = rest.dropFirst()
-                values[a, default: []].append(v)
-            } else if a.hasPrefix("--") {
-                flags.insert(a)
-            } else {
-                throw CLIError("unexpected argument: \(a)\n\n\(usage)")
-            }
-        }
-    }
-
-    func has(_ f: String) -> Bool { flags.contains(f) }
-}
-
-struct CLIError: Error { var message: String; init(_ m: String) { message = m } }
+typealias Args = Invocation
 
 func fmt(_ b: Int64?) -> String { b.map(ByteFormat.string) ?? "—" }
 
@@ -122,24 +67,23 @@ struct ScanJSON: Encodable {
     var rules: [Entry]
 }
 
-func makeContext(_ args: Args? = nil) throws -> RuleContext {
+func makeContext(_ args: Args? = nil) -> RuleContext {
     var settings = SettingsStore().load()
-    func int(_ flag: String) throws -> Int? {
-        guard let v = args?.values[flag]?.last else { return nil }
-        guard let n = Int(v), n >= 0 else { throw CLIError("\(flag) needs a whole number") }
-        return n
-    }
-    if let n = try int("--large-mb") { settings.largeFileThresholdMB = n }
-    if let n = try int("--old-days") { settings.oldFileDays = n }
-    if let n = try int("--old-min-mb") { settings.oldFileMinimumMB = n }
+    // Numeric values were validated by the parser; only `scan` accepts these flags.
+    if let n = args?.int("--large-mb") { settings.largeFileThresholdMB = n }
+    if let n = args?.int("--old-days") { settings.oldFileDays = n }
+    if let n = args?.int("--old-min-mb") { settings.oldFileMinimumMB = n }
     return RuleContext(settings: settings)
 }
 
 func scanCommand(_ args: Args) async throws {
-    let context = try makeContext(args)
+    let context = makeContext(args)
     let all = RuleCatalogue.all.filter { !context.settings.disabledRuleIDs.contains($0.id) }
-    let wanted = args.values["--rule"] ?? []
-    for id in wanted where !all.contains(where: { $0.id == id }) { throw CLIError("unknown rule: \(id)") }
+    let wanted = args.all("--rule")
+    for id in wanted where !all.contains(where: { $0.id == id }) {
+        let disabled = RuleCatalogue.all.contains { $0.id == id }
+        throw CLIError(disabled ? "rule \(id) is disabled in Settings" : "unknown rule: \(id) (see `majortom rules`)")
+    }
     let rules = wanted.isEmpty ? all : all.filter { wanted.contains($0.id) }
     let scanner = Scanner(rules: rules, context: context)
     let json = args.has("--json")
@@ -212,30 +156,26 @@ func rulesCommand(_ args: Args) throws {
 }
 
 func cleanCommand(_ args: Args) async throws {
-    guard let ruleIDs = args.values["--rule"], ruleIDs.count == 1, let ruleID = ruleIDs.first else {
-        throw CLIError("clean needs exactly one --rule <id>\n\n\(usage)")
+    // The parser guarantees exactly one --rule, and no --item/--flagged alongside --action.
+    guard let ruleID = args.value("--rule") else { throw CLIError(CLI.help(for: "clean")) }
+    let context = makeContext()
+    guard let rule = RuleCatalogue.all.first(where: { $0.id == ruleID }) else {
+        throw CLIError("unknown rule: \(ruleID) (see `majortom rules`)")
     }
-    let context = try makeContext(args)
-    guard let rule = RuleCatalogue.all.first(where: { $0.id == ruleID }) else { throw CLIError("unknown rule: \(ruleID)") }
     let execute = args.has("--execute")
     let engine = CleanEngine(context: context)
     let json = args.has("--json")
 
     let report: CleanReport
-    if let actionID = args.values["--action"]?.first {
+    if let actionID = args.value("--action") {
         report = await engine.runAction(ruleID: ruleID, actionID: actionID, execute: execute)
     } else {
         // Scan the rule first so the report carries size estimates.
         let scanner = Scanner(rules: [rule], context: context)
         guard let result = await scanner.rescan(ruleID: ruleID) else { throw CLIError("scan failed") }
-        var items = result.items.filter(\.isCleanable)
-        if args.has("--flagged") { items = items.filter(\.isFlagged) }
-        if let ids = args.values["--item"] {
-            for id in ids where !result.items.contains(where: { $0.id == id || $0.displayName == id }) {
-                throw CLIError("no item \(id) in \(ruleID) (use `majortom scan --rule \(ruleID) --json` for ids)")
-            }
-            items = result.items.filter { ids.contains($0.id) || ids.contains($0.displayName) }
-        }
+        // Throws (before anything is cleaned) if any filter can't be applied exactly.
+        let items = try CleanSelection.select(from: result.items, ruleID: ruleID, itemFilters: args.all("--item"),
+                                              flaggedOnly: args.has("--flagged"))
         let sizes = Dictionary(items.map { ($0.id, $0.size ?? 0) }, uniquingKeysWith: { a, _ in a })
         report = await engine.clean([CleanRequest(ruleID: ruleID, itemIDs: items.map(\.id))], sizes: sizes, execute: execute)
     }
@@ -285,7 +225,7 @@ struct ProjectsJSON: Encodable {
 }
 
 func projectsCommand(_ args: Args) async throws {
-    let context = try makeContext()
+    let context = makeContext()
     let settings = context.settings
     let scanner = ProjectScanner(context: context)
     let roots = settings.effectiveProjectRoots(home: context.home)
@@ -357,7 +297,7 @@ struct OffloadJSON: Encodable {
 }
 
 func offloadCommand(_ args: Args) async throws {
-    let context = try makeContext(args)
+    let context = makeContext()
     let settings = context.settings
     let engine = OffloadEngine(destination: settings.offloadDestinationURL, context: context)
     let check = engine.checkDestination()
@@ -409,16 +349,19 @@ func offloadCommand(_ args: Args) async throws {
 }
 
 do {
-    let args = try Args(CommandLine.arguments)
-    switch args.command {
-    case "scan": try await scanCommand(args)
-    case "rules": try rulesCommand(args)
-    case "clean": try await cleanCommand(args)
-    case "history": try historyCommand(args)
-    case "projects": try await projectsCommand(args)
-    case "offload": try await offloadCommand(args)
-    case "help", "--help", "-h": print(usage)
-    default: throw CLIError("unknown command: \(args.command)\n\n\(usage)")
+    switch try CLI.parse(CommandLine.arguments) {
+    case .help(let command):
+        print(CLI.help(for: command))
+    case .run(let args):
+        switch args.command {
+        case "scan": try await scanCommand(args)
+        case "rules": try rulesCommand(args)
+        case "clean": try await cleanCommand(args)
+        case "history": try historyCommand(args)
+        case "projects": try await projectsCommand(args)
+        case "offload": try await offloadCommand(args)
+        default: throw CLIError("unknown command: \(args.command)\n\n\(CLI.usage)")
+        }
     }
 } catch let e as CLIError {
     FileHandle.standardError.write(Data((e.message + "\n").utf8))

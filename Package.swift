@@ -12,11 +12,13 @@ let package = Package(
     ],
     targets: [
         .target(name: "MajorTomCore"),
-        .executableTarget(name: "majortom", dependencies: ["MajorTomCore"]),
+        .target(name: "MajorTomCLI", dependencies: ["MajorTomCore"]),
+        .executableTarget(name: "majortom", dependencies: ["MajorTomCore", "MajorTomCLI"]),
         .target(name: "GroundControl", dependencies: ["MajorTomCore"]),
         .executableTarget(name: "MajorTomApp", dependencies: ["MajorTomCore", "GroundControl"]),
         .testTarget(name: "MajorTomCoreTests", dependencies: ["MajorTomCore"]),
         .testTarget(name: "GroundControlTests", dependencies: ["GroundControl", "MajorTomCore"]),
+        .testTarget(name: "MajorTomCLITests", dependencies: ["MajorTomCLI", "MajorTomCore"]),
     ],
     swiftLanguageModes: [.v6]
 )

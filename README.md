@@ -120,10 +120,17 @@ majortom clean --rule <id> [--item <id>]... [--flagged] [--action <id>] [--execu
 majortom history [--json]
 majortom projects [--stale] [--dirs] [--json]
 majortom offload [--candidates] [--json]
+majortom help [<command>]
 ```
 
-`clean` is a dry run unless `--execute` is given. `projects` and `offload` only list; hibernating, offloading and
-restoring are done in the app.
+`clean` is a dry run unless `--execute` is given. Without `--item` or `--flagged` it selects every cleanable item of
+the rule; each `--item` (id or display name, from `majortom scan --rule <id> --json`) must match exactly one
+cleanable item or nothing happens. `--action` can't be combined with `--item`/`--flagged`. `projects` and `offload`
+only list; hibernating, offloading and restoring are done in the app.
+
+Valued flags accept `--flag value` or `--flag=value`. Unknown or misspelt flags, a missing value, a repeated
+single-value flag or a stray argument is an error (exit 2) before anything is scanned. `--help` / `-h` anywhere
+(or `majortom help <command>`) prints help and does nothing else.
 
 ## Try it safely: fixture mode
 
