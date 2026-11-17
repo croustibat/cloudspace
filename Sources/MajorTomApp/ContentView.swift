@@ -15,14 +15,15 @@ struct ContentView: View {
     @Environment(GroundControlModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openSettings) private var openSettings
-    @State private var sidebar: SidebarSelection? = switch Snapshotter.argument("--sidebar") {
+    @State private var sidebar: SidebarSelection? = Self.initialSidebar()
+    private static func initialSidebar() -> SidebarSelection? { switch Snapshotter.argument("--sidebar") {
     case "history": .history
     case "projects": .projects
     case "files": .category(.files)
     case "offload": .offload
     case "offloaded": .offloaded
     default: .all
-    }
+    } }
     @State private var selectedRuleID: String?
 
     var body: some View {
