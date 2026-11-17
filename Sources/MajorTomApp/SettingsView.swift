@@ -17,6 +17,7 @@ struct SettingsView: View {
             Tab("NAS", systemImage: "externaldrive.connected.to.line.below", value: "nas") { NASSettings() }
             Tab("Ignored", systemImage: "eye.slash", value: "ignored") { IgnoredSettings() }
             Tab("Access", systemImage: "lock.shield", value: "access") { AccessSettings() }
+            Tab("About", systemImage: "info.circle", value: "about") { AboutSettings() }
         }
         .frame(width: 560, height: 520)
     }
@@ -227,6 +228,24 @@ private struct OwnBundleIDSection: View {
     private func add() {
         model.addOwnBundleIDPrefix(newPrefix)
         newPrefix = ""
+    }
+}
+
+private struct AboutSettings: View {
+    private static let repository = URL(string: "https://github.com/tjlondon-npauctions/majortom")!
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent("Version", value: AppVersion.current)
+                LabeledContent("Source and releases") {
+                    Link(Self.repository.absoluteString, destination: Self.repository)
+                }
+                Text("To update, run the install command from the README again, or download the latest release. Major Tom is open source (MIT) and comes with no warranty.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 

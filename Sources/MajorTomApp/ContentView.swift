@@ -108,7 +108,7 @@ struct MainToolbar: ToolbarContent {
             } label: {
                 Text(plan.isEmpty ? "Review…" : "Review \(selectionSummary(plan))…")
             }
-            .buttonStyle(.glassProminent)
+            .primaryActionButtonStyle()
             .help("Review the selected items before anything is removed (⌘↩)")
             .disabled(plan.isEmpty)
         }

@@ -29,7 +29,7 @@ struct ProjectsView: View {
                     Text("None of the usual project folders (~/Projects, ~/Developer, ~/Code, ~/src, ~/WebstormProjects, …) exist on this Mac. Add the folder your projects live in; you can change the list in Settings → Projects.")
                 } actions: {
                     Button("Add Project Folder…") { FolderPickers.addProjectRoot(model) }
-                        .buttonStyle(.glassProminent)
+                        .primaryActionButtonStyle()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -167,7 +167,7 @@ private struct ProjectsHeader: View {
                     Text(checked.isEmpty ? "Hibernate…"
                          : "Hibernate \(checked.groups.count) (\(ByteFormat.string(checked.estimatedBytes)))…")
                 }
-                .buttonStyle(.glassProminent)
+                .primaryActionButtonStyle()
                 .disabled(checked.isEmpty || model.cleanSession != nil)
                 .help("Review exactly which directories go before anything is removed")
             }

@@ -99,6 +99,7 @@ public enum CLI {
         USAGE
         \(commands.map { "  " + $0.synopsis }.joined(separator: "\n"))
           majortom help [<command>]      (or --help / -h anywhere)
+          majortom --version             (or `majortom version`)
 
         clean is a DRY RUN unless --execute is given. Without --item or --flagged, every
         cleanable item of the rule is selected (protected and report-only items are never
@@ -120,6 +121,8 @@ public enum CLI {
 public enum ParsedCommand: Equatable, Sendable {
     /// Print help (for `command`, or the general usage when nil) and exit 0.
     case help(command: String?)
+    /// Print the version and exit 0.
+    case version
     case run(Invocation)
 }
 
@@ -158,9 +161,14 @@ extension CLI {
                 if let next, !next.hasPrefix("-"), spec(next) != nil { return .help(command: next) }
                 return .help(command: nil)
             }
-            if first == "help" { return .help(command: nil) }
+            if first == "help" || first == "--version" || first == "version" { return .help(command: nil) }
             guard spec(first) != nil else { throw unknownCommand(first) }
             return .help(command: first)
+        }
+
+        if first == "--version" || first == "version" {
+            guard args.count == 1 else { throw CLIError("\(first) takes no arguments\n\n\(usage)") }
+            return .version
         }
 
         if first == "help" {

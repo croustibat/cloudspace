@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "MajorTom",
-    platforms: [.macOS(.v26)],
+    platforms: [.macOS(.v15)],
     products: [
         .library(name: "MajorTomCore", targets: ["MajorTomCore"]),
         .executable(name: "majortom", targets: ["majortom"]),

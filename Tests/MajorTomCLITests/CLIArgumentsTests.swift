@@ -129,6 +129,14 @@ struct CLIArgumentsTests {
         #expect(try parse("clean", "--item", "--help") == .help(command: "clean"))
     }
 
+    @Test func versionFlag() throws {
+        #expect(try parse("--version") == .version)
+        #expect(try parse("version") == .version)
+        #expect(try parse("--version", "--help") == .help(command: nil))
+        #expect(failure("--version", "scan")?.message.contains("takes no arguments") == true)
+        #expect(failure("scan", "--version")?.message.contains("unknown option: --version") == true)
+    }
+
     @Test func helpTextIsPerCommand() {
         let clean = CLI.help(for: "clean")
         #expect(clean.contains("majortom clean --rule <id>"))

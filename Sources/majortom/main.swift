@@ -352,6 +352,8 @@ do {
     switch try CLI.parse(CommandLine.arguments) {
     case .help(let command):
         print(CLI.help(for: command))
+    case .version:
+        print("majortom \(AppVersion.current)")
     case .run(let args):
         switch args.command {
         case "scan": try await scanCommand(args)

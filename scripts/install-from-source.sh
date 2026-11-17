@@ -1,11 +1,12 @@
 #!/bin/zsh
-# Builds Major Tom (scripts/bundle.sh) and copies MajorTom.app to /Applications, or to ~/Applications when
-# /Applications isn't writable. Never uses sudo.
+# For developers: builds Major Tom from this checkout (scripts/bundle.sh) and copies MajorTom.app to
+# /Applications, or to ~/Applications when /Applications isn't writable. Never uses sudo.
+# (Users without Xcode: use the prebuilt release installer, ./install.sh at the repo root, instead.)
 #
-#   scripts/install.sh               build, then install
-#   scripts/install.sh --no-build    install the existing build/MajorTom.app
-#   scripts/install.sh --dry-run     print what would happen, change nothing
-#   scripts/install.sh --dest DIR    install into DIR instead (e.g. a temp folder to try it out)
+#   scripts/install-from-source.sh               build, then install
+#   scripts/install-from-source.sh --no-build    install the existing build/MajorTom.app
+#   scripts/install-from-source.sh --dry-run     print what would happen, change nothing
+#   scripts/install-from-source.sh --dest DIR    install into DIR instead (e.g. a temp folder to try it out)
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -22,7 +23,7 @@ while (( $# )); do
     --no-build) BUILD=0 ;;
     --dry-run) DRY_RUN=1 ;;
     --dest) shift; DEST="${1:?--dest needs a folder}" ;;
-    -h|--help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
@@ -69,6 +70,6 @@ run xattr -dr com.apple.quarantine "$TARGET" 2>/dev/null || true
 
 if (( DRY_RUN )); then print "Dry run: nothing was changed. Would install $TARGET"; exit 0; fi
 print "Installed $TARGET"
-print "Command line tool: $OUT/majortom (copy it onto your PATH if you want it, e.g. ~/.local/bin)."
+print "Command line tool: $TARGET/Contents/Helpers/majortom (symlink it onto your PATH if you want it, e.g. ~/.local/bin)."
 print "First run: open it, grant Full Disk Access in System Settings → Privacy & Security if you want the Trash and"
 print "app Containers measured, and check Settings → Projects / NAS."

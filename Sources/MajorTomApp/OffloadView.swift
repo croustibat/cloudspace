@@ -58,7 +58,7 @@ struct OffloadView: View {
                     Text("Offloading copies stale projects, Xcode archives and cold files to a folder on a mounted network share, verifies the copy, and only then moves the original to the Trash. Connect the share in Finder (Go → Connect to Server, ⌘K), then choose a folder on it.")
                 } actions: {
                     Button("Choose NAS Folder…") { FolderPickers.chooseNASFolder(model) }
-                        .buttonStyle(.glassProminent)
+                        .primaryActionButtonStyle()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -146,7 +146,7 @@ private struct OffloadHeader: View {
             } label: {
                 Text(checked.isEmpty ? "Offload…" : "Offload \(checked.count) (\(ByteFormat.string(bytes)))…")
             }
-            .buttonStyle(.glassProminent)
+            .primaryActionButtonStyle()
             .disabled(checked.isEmpty || model.offloadSession != nil)
         }
         .font(.callout)

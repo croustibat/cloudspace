@@ -1,7 +1,8 @@
 # Major Tom — spec (as built)
 
 Personal, developer-oriented disk cleaner for macOS ("Ground Control to Major Tom: you're running out of space").
-Not distributed: no sandbox, no App Store, ad-hoc signed. Runs on any Mac with macOS 26 (built on Apple Silicon);
+No sandbox, no App Store, ad-hoc signed (not notarised); released as a universal zip on GitHub Releases with a
+`curl | bash` installer. Runs on macOS 15 or later (macOS 26 styling where available), Apple Silicon or Intel;
 nothing in it assumes a particular user, folder layout, toolchain or NAS.
 
 ## Hard safety rules
@@ -20,7 +21,8 @@ nothing in it assumes a particular user, folder layout, toolchain or NAS.
 
 ## Stack and layout
 
-Swift 6.2 (language mode 6, strict concurrency), SwiftUI, macOS 26. Swift package, no dependencies:
+Swift 6.2 (language mode 6, strict concurrency), SwiftUI, deployment target macOS 15 (macOS 26 SDK). Swift
+package, no dependencies:
 
 ```
 Sources/MajorTomCore/   scanner, rules, clean engine, path validation, projects, offload, settings, history, fixtures
@@ -28,8 +30,11 @@ Sources/GroundControl/  @MainActor @Observable view models, AppEnvironment (live
 Sources/MajorTomApp/    SwiftUI app: main window + MenuBarExtra + Settings
 Sources/majortom/       CLI: scan, rules, clean [--execute], history, projects, offload (JSON with --json)
 Tests/                  Swift Testing, fixture-based (MajorTomCoreTests, GroundControlTests)
-scripts/bundle.sh       release build -> build/MajorTom.app + build/majortom (Info.plist, icon, ad-hoc codesign)
-scripts/install.sh      bundle + copy to /Applications (or ~/Applications), no sudo
+VERSION                 the version (single source of truth -> Info.plist -> app About tab and `majortom --version`)
+install.sh              end-user installer: downloads a GitHub release, verifies SHA-256, installs, no sudo
+scripts/bundle.sh       universal release build -> build/MajorTom.app (CLI in Contents/Helpers; icon; ad-hoc codesign)
+scripts/release.sh      tests + clean build + checks + MajorTom-<version>.zip + .sha256; prints `gh release create`
+scripts/install-from-source.sh  bundle + copy to /Applications (or ~/Applications), no sudo
 scripts/make-icon.swift draws the app icon (CoreGraphics) -> design/AppIcon.icns
 ```
 

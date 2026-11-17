@@ -179,7 +179,7 @@ struct MenuBarView: View {
                 Label("Quick Clean…", systemImage: "sparkles")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.glassProminent)
+            .primaryActionButtonStyle()
             .disabled(quickCleanDisabled)
             .help("Selects every safe item and opens the review sheet. Nothing is removed until you confirm.")
 

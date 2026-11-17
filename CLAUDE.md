@@ -1,11 +1,16 @@
 # Major Tom — notes for working on this repo
 
-Personal macOS 26 disk cleaner for developers (SwiftUI app + menu bar + `majortom` CLI). Finds dev-tool caches,
+Personal macOS disk cleaner for developers (macOS 15+, universal) (SwiftUI app + menu bar + `majortom` CLI). Finds dev-tool caches,
 explains what deleting each costs, removes only what the user confirms; also hibernates stale projects, lists
 large/old files and removed apps' leftovers, and offloads to a NAS. `SPEC.md` is the spec (as built),
 `PROGRESS.md` the per-milestone record, `README.md` the user-facing doc.
 
 ## Targets (Swift 6.2, language mode 6, strict concurrency, no dependencies)
+
+Deployment target is macOS 15 (`Package.swift`), built with the macOS 26 SDK. Anything newer than macOS 15 needs an
+`if #available(macOS 26.0, *)` with a macOS 15 fallback (shims in `MajorTomApp/Compatibility.swift`, e.g.
+`primaryActionButtonStyle()` = Liquid Glass on 26, `.borderedProminent` on 15). `swift build` reports a missing
+check as an error. SF Symbols must exist in macOS 15 (they'd render blank, not fail to build).
 
 - `Sources/MajorTomCore` — everything that touches the disk: model (`Model.swift`), `Scanner`/`DiskSizer`, rules
   (`Rules/`, one file per category), `CleanEngine` + `PathValidator`, `Projects/` (discovery, hibernation),
@@ -39,9 +44,11 @@ large/old files and removed apps' leftovers, and offloads to a NAS. `SPEC.md` is
 
 ```sh
 swift build && swift test                       # 0 warnings expected; ~30 s of tests
-scripts/bundle.sh                               # release -> build/MajorTom.app + build/majortom (ad-hoc signed)
+scripts/bundle.sh                               # universal release -> build/MajorTom.app (ad-hoc signed)
 OUT_DIR=/tmp/mt scripts/bundle.sh               # same, elsewhere (don't replace a running build/ copy)
-scripts/install.sh [--dry-run] [--no-build] [--dest DIR]   # copy to /Applications or ~/Applications
+ARCHS=arm64 scripts/bundle.sh                   # one architecture only (faster)
+scripts/install-from-source.sh [--dry-run] [--no-build] [--dest DIR]   # copy your build to /Applications
+scripts/release.sh                              # release artefacts (see Releasing); never publishes
 swift run majortom scan|projects|offload [--json]           # real machine, read-only
 build/MajorTom.app/Contents/MacOS/MajorTom --fixture [--fixture-empty] [--demo clean|hibernate|offload|…]
   --sidebar <projects|files|offload|offloaded|history> --snapshot DIR --snapshot-label X
@@ -51,6 +58,28 @@ MAJORTOM_NAS_E2E=/Volumes/<share>/_devtest swift test --filter NASEndToEnd   # o
 
 `screencapture` isn't permitted from the agent shell: use `--snapshot` (the app renders its own windows to PNGs;
 `MAJORTOM_SNAPSHOT_LAYER=1` when displays are asleep). Wrap app runs in `perl -e 'alarm 90; exec @ARGV' …`.
+
+## Releasing (prebuilt, unsigned)
+
+Releases are deliberately ad-hoc signed and not notarised (no Developer ID identity, no notarytool).
+1. Bump `VERSION` (plain `MAJOR.MINOR.PATCH`; it's the only place the version lives: `bundle.sh` writes it into
+   Info.plist, the app's Settings → About and `majortom --version` read it back from the bundle; `swift run` says
+   `dev`). Commit and push to main.
+2. `scripts/release.sh` (or `OUT_DIR=/tmp/mt scripts/release.sh` if `build/MajorTom.app` is running): runs the tests,
+   cleans, builds universal (arm64 + x86_64), checks Info.plist / `--version` / `lipo` / `vtool` minos against
+   `VERSION` and the `MIN_MACOS` / `SUPPORTED_ARCHS` constants in `install.sh`, then writes
+   `build/MajorTom-<version>.zip` (`ditto -c -k --keepParent`, no xattrs) and `build/MajorTom-<version>.zip.sha256`.
+3. Run the `gh release create v<version> …` command it prints (the owner does this, not agents). Asset names must
+   stay `MajorTom-<version>.zip[.sha256]` and tags `v<version>`: `install.sh` relies on them and resolves "latest"
+   via the `releases/latest` redirect.
+4. Raising the minimum macOS or changing architectures: update `Package.swift`, `MIN_MACOS` / `SUPPORTED_ARCHS` in
+   `install.sh` and the README requirements; `release.sh` fails if they disagree.
+
+Testing `install.sh` without the network or the real install: `MAJORTOM_INSTALL_BASE_URL` (http(s):// or file://,
+files at `<base>/download/v<version>/`, `<base>/latest` redirecting to `…/v<version>`),
+`MAJORTOM_INSTALL_FAKE_OS_VERSION`, `MAJORTOM_INSTALL_FAKE_ARCH`; always pass `--dir <temp>` and a temp `HOME` so
+neither `/Applications` nor `~/.local/bin` is touched. `bash -n install.sh` (and `shellcheck` if installed); it must
+stay bash 3.2 compatible (macOS's `/bin/bash`).
 
 ## Adding things
 
@@ -102,7 +131,10 @@ default), mutate via `GroundControlModel.updateSettings`; add to `fileRulesDiffe
 - Large files above `offloadChecksumCapMB` are verified by size + first/last 4 MiB hash on offload (restore checks all).
 - Offload and Trash-only rules move originals to the Trash: space returns only once the Trash is emptied.
 - Without Full Disk Access the Trash rule errors and `~/Library/Containers` is skipped by the orphan rule.
-- Ad-hoc signing changes per build: privacy prompts (Documents/Desktop/Downloads) may reappear after `bundle.sh`.
+- Ad-hoc signing changes per build: privacy prompts (Documents/Desktop/Downloads) and Full Disk Access may reappear
+  after `bundle.sh` or a release update.
+- The CLI lives at `Contents/Helpers/majortom`, not `Contents/MacOS`: `MajorTom` and `majortom` collide on a
+  case-insensitive volume. Sign it before the bundle (`bundle.sh` does).
 - SwiftUI: vertically `fixedSize` text above a `List` draws the window blank; mutating the model inside a sidebar
   selection change trips NSTableView reentrancy — `await Task.yield()` first; rebuild tables via `.id(...)` rather
   than animating rows while sizes stream in. A remembered frame on a sleeping display stops rendering.

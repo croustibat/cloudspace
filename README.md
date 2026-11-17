@@ -7,6 +7,54 @@ anything.
 
 ![Major Tom main window](docs/screenshots/main-light.png)
 
+## Install
+
+Needs macOS 15 or later, on Apple Silicon or Intel. No Xcode needed.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/tjlondon-npauctions/majortom/main/install.sh | bash
+```
+
+The [installer](install.sh) is short and commented; read it first if you like. It checks your Mac is supported,
+downloads the latest release from GitHub, verifies its SHA-256 checksum, installs `MajorTom.app` into
+`/Applications` (or `~/Applications` if that isn't writable; never `sudo`), and links the `majortom` command into
+`~/.local/bin` or `~/bin` if one of those is on your `PATH`. Run the same command again to update: it asks a
+running Major Tom to quit and replaces it. Options go after `bash -s --`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/tjlondon-npauctions/majortom/main/install.sh | bash -s -- --version 1.0.0
+curl -fsSL https://raw.githubusercontent.com/tjlondon-npauctions/majortom/main/install.sh | bash -s -- --dir ~/Applications
+curl -fsSL https://raw.githubusercontent.com/tjlondon-npauctions/majortom/main/install.sh | bash -s -- --uninstall
+```
+
+`--uninstall` removes the app and the command link and keeps your settings and history
+(`~/Library/Application Support/MajorTom`).
+
+### Manual download
+
+1. Download `MajorTom-<version>.zip` from [Releases](https://github.com/tjlondon-npauctions/majortom/releases)
+   (optionally check it against the `.sha256` file: `shasum -a 256 -c MajorTom-<version>.zip.sha256`).
+2. Unzip it and drag `MajorTom.app` to Applications.
+3. The first time, macOS refuses to open it because it isn't notarised. Try to open it once (click **Done** on the
+   warning), then go to System Settings → Privacy & Security, scroll down and click **Open Anyway**, and confirm.
+   (On older macOS this was right-click → **Open**; macOS 15 and later need the System Settings route.)
+
+The command line tool is inside the app: `/Applications/MajorTom.app/Contents/Helpers/majortom`. Link it onto your
+`PATH` if you want it, e.g. `ln -s /Applications/MajorTom.app/Contents/Helpers/majortom ~/.local/bin/majortom`.
+
+### Why isn't it notarised?
+
+Notarisation requires a paid Apple Developer account, and this is a free personal project, so releases are only
+ad-hoc signed: macOS can check the app hasn't been modified, but not who made it. That's why a downloaded copy is
+blocked at first (the manual steps above). The installer uses `curl`, which doesn't mark files as quarantined, and
+then removes the quarantine attribute from the installed `MajorTom.app` only, so it opens without the warning; it
+changes no Gatekeeper or system setting. One known consequence of ad-hoc signing: each update looks like a new app
+to macOS, so it may ask for Full Disk Access (and Documents / Desktop / Downloads access) again after you update.
+
+### Build from source
+
+Needs Xcode 26 (Swift 6.2). See [Build from source](#build-from-source-1) below.
+
 ## Why it exists
 
 On a developer Mac, "System Data" quietly grows to fill the disk: Xcode DerivedData, simulator devices and runtimes,
@@ -70,31 +118,12 @@ Tools you don't have installed simply show nothing.
 
 ## Requirements
 
-- macOS 26
-- Apple Silicon (an Intel Mac may work when built from source, but is untested)
-- Xcode 26 / Swift 6.2 to build (Command Line Tools alone may lack the macOS 26 SDK)
+- macOS 15 (Sequoia) or later. Developed and tested on macOS 26; on macOS 15 it uses standard controls where
+  macOS 26 has Liquid Glass. macOS 15 is supported by the build but hasn't been tested on a real macOS 15 Mac yet.
+- Apple Silicon or Intel: releases are universal binaries (arm64 + x86_64). Intel is untested on real hardware.
+- To build from source: Xcode 26 / Swift 6.2 (Command Line Tools alone may lack the macOS 26 SDK).
 
 No third-party dependencies.
-
-## Build and install
-
-```sh
-git clone <this repo> MajorTom && cd MajorTom
-swift build && swift test     # debug build + fixture-based tests (temp folders only)
-scripts/bundle.sh             # release build -> build/MajorTom.app + build/majortom, ad-hoc signed
-open build/MajorTom.app
-```
-
-To install into `/Applications` (or `~/Applications` if that isn't writable):
-
-```sh
-scripts/install.sh --dry-run  # show what it would do
-scripts/install.sh
-```
-
-The installer never uses `sudo`, refuses to overwrite anything that isn't a Major Tom build, and refuses while that
-copy is running. The CLI stays at `build/majortom`; copy it onto your `PATH` if you want it.
-`OUT_DIR=<folder>` builds somewhere other than `build/`; `BUNDLE_ID=<id>` changes the bundle identifier.
 
 ## First run
 
@@ -155,11 +184,31 @@ tests every rule needs.
 - A personal project, built with AI coding agents (Claude Code) and reviewed by its author. It does what its
   author needs; it is not a product.
 - Tested on one Mac. Folder layouts, tool versions and NAS setups on yours may differ.
-- Ad-hoc signed and not notarised. There are no prebuilt releases: build it from source.
+- Ad-hoc signed and not notarised (see [Why isn't it notarised?](#why-isnt-it-notarised)).
 - Not sandboxed (it couldn't do its job otherwise) and not on the App Store.
 - Real notifications and the login item have only been exercised through test fakes.
 - See [SPEC.md](SPEC.md) for the full behaviour and [PROGRESS.md](PROGRESS.md) for what each milestone built and
   what is still open.
+
+## Build from source
+
+```sh
+git clone https://github.com/tjlondon-npauctions/majortom.git MajorTom && cd MajorTom
+swift build && swift test     # debug build + fixture-based tests (temp folders only)
+scripts/bundle.sh             # release build -> build/MajorTom.app (universal, ad-hoc signed)
+open build/MajorTom.app
+```
+
+`build/majortom` links to the CLI inside the bundle. To copy your build into `/Applications` (or `~/Applications`):
+
+```sh
+scripts/install-from-source.sh --dry-run  # show what it would do
+scripts/install-from-source.sh
+```
+
+It never uses `sudo`, refuses to overwrite anything that isn't a Major Tom build, and refuses while that copy is
+running. `OUT_DIR=<folder>` builds somewhere other than `build/`; `ARCHS=arm64` builds one architecture only
+(faster); `BUNDLE_ID=<id>` changes the bundle identifier. The version comes from the `VERSION` file.
 
 ## Disclaimer
 
