@@ -837,7 +837,7 @@ public struct OffloadEngine: Sendable {
 
     // MARK: Candidates and validation
 
-    /// Fresh check that this candidate is still something Major Tom would offer, and that its path passes the same
+    /// Fresh check that this candidate is still something CloudSpace would offer, and that its path passes the same
     /// validation as a clean (inside home, not protected, not a volume or configured root, no symlink escape).
     func revalidate(_ c: OffloadCandidate) async throws {
         let validator = PathValidator(context: context)

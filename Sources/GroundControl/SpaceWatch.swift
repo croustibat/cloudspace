@@ -33,7 +33,7 @@ public struct LowSpaceAlert: Sendable, Equatable {
         if let safe = safeReclaimable, safe > 0 {
             text += " About \(ByteFormat.string(safe)) of safe caches can go — Quick Clean shows you the list first."
         } else {
-            text += " Open Major Tom to see what can go."
+            text += " Open CloudSpace to see what can go."
         }
         return text
     }

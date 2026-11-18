@@ -290,7 +290,7 @@ public struct RuleResult: Sendable, Codable, Identifiable {
         self.deniedPaths = deniedPaths
     }
 
-    /// Bytes across items Major Tom can actually clean (not protected, not report-only).
+    /// Bytes across items CloudSpace can actually clean (not protected, not report-only).
     public var reclaimableSize: Int64 {
         items.filter(\.isCleanable).reduce(0) { $0 + ($1.size ?? 0) }
     }

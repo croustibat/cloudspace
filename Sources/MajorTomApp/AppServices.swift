@@ -53,7 +53,7 @@ final class AppServices {
     private var launchCheckDone = false
 
     /// SwiftUI sometimes restores a "no windows open" state for apps with a menu bar extra; launching
-    /// Major Tom should still show the window, so open it if it didn't appear by itself.
+    /// CloudSpace should still show the window, so open it if it didn't appear by itself.
     func ensureMainWindowAtLaunch() {
         guard !launchCheckDone else { return }
         launchCheckDone = true

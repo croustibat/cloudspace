@@ -15,7 +15,7 @@ public enum AppVersion {
 
     /// Reads `CFBundleShortVersionString` from the Info.plist of the app bundle that contains `executable`
     /// (`<App>.app/Contents/{MacOS,Helpers}/<name>`). Symlinks are resolved first, so a CLI symlinked into
-    /// `~/.local/bin` still finds its bundle. Returns nil when the executable isn't inside a Major Tom bundle.
+    /// `~/.local/bin` still finds its bundle. Returns nil when the executable isn't inside a CloudSpace bundle.
     public static func version(forExecutable executable: URL) -> String? {
         let contents = executable.resolvingSymlinksInPath()
             .deletingLastPathComponent()   // MacOS or Helpers

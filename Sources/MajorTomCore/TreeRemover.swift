@@ -246,11 +246,11 @@ public enum RemovalAdvice {
             let who = holders.isEmpty ? "" : " by \(holders.map(\.name).joined(separator: ", "))"
             return "in use\(who) — quit it and try again"
         case EXDEV:
-            return "a volume is mounted here — eject it first; Major Tom doesn't delete across volumes"
+            return "a volume is mounted here — eject it first; CloudSpace doesn't delete across volumes"
         case EROFS:
             return "on a read-only volume — can't be removed from here"
         case ENAMETOOLONG:
-            return "nested too deeply (over \(TreeRemover.maxDepth) folders inside each other) — Major Tom stops there; remove it yourself with `rm -rf \(q)`"
+            return "nested too deeply (over \(TreeRemover.maxDepth) folders inside each other) — CloudSpace stops there; remove it yourself with `rm -rf \(q)`"
         case EINVAL:
             return "refused: not a plain absolute path"
         case EPERM, EACCES:
@@ -272,13 +272,13 @@ public enum RemovalAdvice {
                 return "protected by System Integrity Protection — macOS doesn't allow removing it; leave it"
             }
             if st.st_flags & UInt32(SF_IMMUTABLE | SF_APPEND) != 0 {
-                return "locked by the system (schg flag) — Major Tom never uses admin rights; to remove it yourself run `sudo chflags -R noschg \(q) && sudo rm -rf \(q)`"
+                return "locked by the system (schg flag) — CloudSpace never uses admin rights; to remove it yourself run `sudo chflags -R noschg \(q) && sudo rm -rf \(q)`"
             }
             if st.st_flags & UInt32(UF_IMMUTABLE | UF_APPEND) != 0 {
                 return "locked (Finder's Locked / uchg flag) — unlock it with `chflags -R nouchg \(q)` and try again"
             }
             if st.st_uid != uid {
-                return "owned by \(userName(st.st_uid)) — Major Tom never uses admin rights; remove it yourself with `sudo rm -rf \(q)`"
+                return "owned by \(userName(st.st_uid)) — CloudSpace never uses admin rights; remove it yourself with `sudo rm -rf \(q)`"
             }
         }
         if haveParent {
@@ -287,7 +287,7 @@ public enum RemovalAdvice {
                 return "its folder is locked (uchg flag) — unlock it with `chflags nouchg \(qp)` and try again"
             }
             if pst.st_uid != uid {
-                return "its folder is owned by \(userName(pst.st_uid)) — Major Tom never uses admin rights; remove it yourself with `sudo rm -rf \(q)`"
+                return "its folder is owned by \(userName(pst.st_uid)) — CloudSpace never uses admin rights; remove it yourself with `sudo rm -rf \(q)`"
             }
             if access(parent, W_OK) != 0 {
                 return "its folder is read-only — run `chmod u+w \(qp)` and try again"
@@ -299,7 +299,7 @@ public enum RemovalAdvice {
         if haveSelf, hasACL(path) {
             return "an access-control list on it forbids deleting it (see `ls -led \(q)`)"
         }
-        return "macOS blocked access (privacy protection) — give Major Tom Full Disk Access in System Settings › Privacy & Security › Full Disk Access, then try again"
+        return "macOS blocked access (privacy protection) — give CloudSpace Full Disk Access in System Settings › Privacy & Security › Full Disk Access, then try again"
     }
 
     /// Advice for an error thrown by Foundation (e.g. a move to the Trash), from its POSIX cause when it has one.

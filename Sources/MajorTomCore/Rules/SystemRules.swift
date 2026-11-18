@@ -14,7 +14,7 @@ enum SystemRules {
         category: .system,
         tier: .review,
         impact: "Report only. This folder mixes caches with your local Claude state (sessions, extensions, VM bundles); deleting the wrong part signs you out or loses local data.",
-        recovery: "Not applicable — Major Tom doesn't clean it in v1.",
+        recovery: "Not applicable — CloudSpace doesn't clean it in v1.",
         regenCost: "n/a",
         method: .reportOnly,
         baseDirectories: { [$0.path("Library/Application Support/Claude")] },

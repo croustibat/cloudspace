@@ -349,7 +349,7 @@ public enum FixtureGit {
     public static func run(_ args: [String], in dir: URL, date: Date) throws {
         let p = Process()
         p.executableURL = URL(filePath: "/usr/bin/git")
-        p.arguments = ["-c", "user.name=Major Tom", "-c", "user.email=majortom@example.invalid", "-c", "commit.gpgsign=false"] + args
+        p.arguments = ["-c", "user.name=CloudSpace", "-c", "user.email=majortom@example.invalid", "-c", "commit.gpgsign=false"] + args
         p.currentDirectoryURL = dir
         var env = ProcessInfo.processInfo.environment.merging(isolatedEnvironment) { _, new in new }
         let stamp = "\(Int(date.timeIntervalSince1970)) +0000"

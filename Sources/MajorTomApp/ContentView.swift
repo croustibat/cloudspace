@@ -148,8 +148,8 @@ struct FullDiskAccessBanner: View {
             Image(systemName: "lock.trianglebadge.exclamationmark")
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 1) {
-                Text("Major Tom doesn't have Full Disk Access").fontWeight(.semibold)
-                Text("The Trash and some app caches can't be measured until you allow it. Add Major Tom, then come back.")
+                Text("CloudSpace doesn't have Full Disk Access").fontWeight(.semibold)
+                Text("The Trash and some app caches can't be measured until you allow it. Add CloudSpace, then come back.")
                     .foregroundStyle(.secondary)
             }
             Spacer()

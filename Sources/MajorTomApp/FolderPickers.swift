@@ -12,7 +12,7 @@ enum FolderPickers {
         panel.allowsMultipleSelection = false
         panel.directoryURL = model.environment.context.home
         panel.prompt = "Add"
-        panel.message = "Choose a folder your projects live in (Major Tom looks several levels deep)."
+        panel.message = "Choose a folder your projects live in (CloudSpace looks several levels deep)."
         if panel.runModal() == .OK, let url = panel.url { model.addProjectRoot(url) }
     }
 

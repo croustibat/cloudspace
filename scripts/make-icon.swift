@@ -8,13 +8,14 @@
 //   a  "Orbit"       — night-blue tile, a pale planet with a tilted orbit; the bright part of the orbit is a gauge.
 //   b  "Gauge"       — light tile, a small ringed planet inside a thick round disk-usage gauge.
 //   c  "Phase"       — dusk tile, a planet whose lit crescent is the gauge, one thin orbit with a satellite.
+//   d  "Cloud"       — sky-blue tile, a white cloud with an upload arrow (the CloudSpace fork's icon).
 import CoreGraphics
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
 /// The candidate wired into the app (scripts/bundle.sh).
-let chosenCandidate = "a"
+let chosenCandidate = "d"
 
 // MARK: - Helpers
 
@@ -203,7 +204,48 @@ func drawPhase(_ ctx: CGContext, small: Bool) {
     })
 }
 
-let candidates: [String: (CGContext, Bool) -> Void] = ["a": drawOrbit, "b": drawGauge, "c": drawPhase]
+/// d — Cloud: sky tile, a white cloud, an arrow going up into it (offload to iCloud Drive).
+func drawCloud(_ ctx: CGContext, small: Bool) {
+    tile(ctx, background: { ctx, r in
+        ctx.drawLinearGradient(gradient([rgb(0x5CC4FF), rgb(0x2460E0)]), start: CGPoint(x: 0, y: r.maxY),
+                               end: CGPoint(x: 0, y: r.minY), options: [])
+        ctx.drawRadialGradient(gradient([rgb(0xFFFFFF, 0.30), rgb(0xFFFFFF, 0)]), startCenter: CGPoint(x: 380, y: 760),
+                               startRadius: 0, endCenter: CGPoint(x: 380, y: 760), endRadius: 460, options: [])
+    }, content: { ctx in
+        let cloud = CGMutablePath()
+        cloud.addRoundedRect(in: CGRect(x: 232, y: 330, width: 560, height: 210), cornerWidth: 105, cornerHeight: 105)
+        cloud.addEllipse(in: CGRect(x: 290, y: 400, width: 250, height: 250))
+        cloud.addEllipse(in: CGRect(x: 420, y: 410, width: 320, height: 320))
+        // Soft shadow under the cloud, then the cloud itself with a faint top-to-bottom shade.
+        ctx.saveGState()
+        let k = ctx.ctm.a
+        ctx.setShadow(offset: CGSize(width: 0, height: -14 * k), blur: 30 * k, color: rgb(0x0B2A7A, 0.35))
+        ctx.addPath(cloud)
+        ctx.setFillColor(rgb(0xFFFFFF))
+        ctx.fillPath(using: .winding)
+        ctx.restoreGState()
+        ctx.saveGState()
+        ctx.addPath(cloud)
+        ctx.clip(using: .winding)
+        ctx.drawLinearGradient(gradient([rgb(0xFFFFFF), rgb(0xDCEBFF)]), start: CGPoint(x: 0, y: 730),
+                               end: CGPoint(x: 0, y: 330), options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+        ctx.restoreGState()
+        // Upload arrow.
+        let w: CGFloat = small ? 64 : 46
+        let ink = rgb(0x2460E0)
+        let tip = CGPoint(x: 512, y: 590), head: CGFloat = small ? 96 : 84
+        let arrow = CGMutablePath()
+        arrow.move(to: CGPoint(x: 512, y: 388))
+        arrow.addLine(to: tip)
+        arrow.move(to: CGPoint(x: tip.x - head, y: tip.y - head))
+        arrow.addLine(to: tip)
+        arrow.addLine(to: CGPoint(x: tip.x + head, y: tip.y - head))
+        ctx.setLineJoin(.round)
+        stroke(ctx, arrow, width: w, color: ink)
+    })
+}
+
+let candidates: [String: (CGContext, Bool) -> Void] = ["a": drawOrbit, "b": drawGauge, "c": drawPhase, "d": drawCloud]
 
 // MARK: - Rendering
 
@@ -278,7 +320,7 @@ do {
         }
         print("Wrote \(folder.path) (candidate \(name))")
     } else {
-        print("usage: swift scripts/make-icon.swift --previews <dir> [--sheet <png>] | --iconset <dir> [--candidate a|b|c]")
+        print("usage: swift scripts/make-icon.swift --previews <dir> [--sheet <png>] | --iconset <dir> [--candidate a|b|c|d]")
         exit(2)
     }
 } catch {

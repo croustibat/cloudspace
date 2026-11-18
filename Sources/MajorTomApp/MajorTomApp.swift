@@ -11,7 +11,7 @@ struct MajorTomApp: App {
     @State private var watch = AppServices.shared.watch
 
     var body: some Scene {
-        Window(model.environment.isFixture ? "Major Tom — Fixture" : "Major Tom", id: "main") {
+        Window(model.environment.isFixture ? "CloudSpace — Fixture" : "CloudSpace", id: "main") {
             ContentView()
                 .environment(model)
                 .environment(watch)
@@ -88,7 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Closing the window leaves Major Tom running in the menu bar.
+    /// Closing the window leaves CloudSpace running in the menu bar.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func applicationWillTerminate(_ notification: Notification) {

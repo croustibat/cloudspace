@@ -1,5 +1,6 @@
 #!/bin/zsh
-# Release build -> build/MajorTom.app (ad-hoc signed, universal arm64 + x86_64). The `majortom` CLI ships inside
+# Release build -> build/CloudSpace.app (the executable inside is still called MajorTom)
+# Release build -> build/CloudSpace.app (ad-hoc signed, universal arm64 + x86_64). The `majortom` CLI ships inside
 # the bundle at Contents/Helpers/majortom; build/majortom is a symlink to it.
 # OUT_DIR=<folder> builds there instead of build/ (e.g. while a copy in build/ is running).
 # ARCHS="arm64" builds for one architecture only (faster while developing). Default: "arm64 x86_64".
@@ -11,7 +12,7 @@ cd "$(dirname "$0")/.."
 ROOT="$PWD"
 OUT="${OUT_DIR:-$ROOT/build}"
 mkdir -p "$OUT"
-APP="$OUT/MajorTom.app"
+APP="$OUT/CloudSpace.app"
 VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION")"
 if [[ ! "$VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then
   echo "VERSION must be MAJOR.MINOR.PATCH (got '$VERSION')" >&2
@@ -21,7 +22,7 @@ ARCHS=(${=ARCHS:-arm64 x86_64})
 ARCH_FLAGS=()
 for arch in $ARCHS; do ARCH_FLAGS+=(--arch "$arch"); done
 # Notifications, privacy grants and the login item are keyed to the bundle id; override it if you like.
-BUNDLE_ID="${BUNDLE_ID:-uk.co.tom-jordan.majortom}"
+BUNDLE_ID="${BUNDLE_ID:-com.croustibat.cloudspace}"
 
 swift build -c release $ARCH_FLAGS --product MajorTomApp
 swift build -c release $ARCH_FLAGS --product majortom
@@ -37,7 +38,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Helpers" "$APP/Contents/Resources"
 cp "$BIN_DIR/MajorTomApp" "$APP/Contents/MacOS/MajorTom"
 cp "$BIN_DIR/majortom" "$APP/Contents/Helpers/majortom"
 rm -f "$OUT/majortom"
-ln -s "MajorTom.app/Contents/Helpers/majortom" "$OUT/majortom"
+ln -s "CloudSpace.app/Contents/Helpers/majortom" "$OUT/majortom"
 
 # App icon: drawn by scripts/make-icon.swift (CoreGraphics) -> iconset -> .icns. design/AppIcon.icns is the
 # committed output; the 512 px previews of all candidates live in design/icon-candidates/.
@@ -54,8 +55,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
   <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
-  <key>CFBundleName</key><string>Major Tom</string>
-  <key>CFBundleDisplayName</key><string>Major Tom</string>
+  <key>CFBundleName</key><string>CloudSpace</string>
+  <key>CFBundleDisplayName</key><string>CloudSpace</string>
   <key>CFBundleExecutable</key><string>MajorTom</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>

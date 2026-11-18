@@ -225,7 +225,7 @@ enum XcodeRules {
                 title: "Clear simulator dyld caches (admin)",
                 command: ["sudo", "rm", "-rf", coreSimulatorCaches + "/dyld"],
                 tier: .safe,
-                explanation: "Rebuilt automatically the next time a simulator boots (that first boot is slower). Needs admin rights, so Major Tom only shows the command.",
+                explanation: "Rebuilt automatically the next time a simulator boots (that first boot is slower). Needs admin rights, so CloudSpace only shows the command.",
                 runnable: false)]
         }
     )

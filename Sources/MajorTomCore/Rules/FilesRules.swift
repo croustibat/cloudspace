@@ -116,7 +116,7 @@ enum FilesRules {
 
     static func deniedMessage(_ denied: [String]) -> String {
         let list = ListFormatter.localizedString(byJoining: denied)
-        return "macOS privacy protection kept Major Tom out of \(list), so files there aren't listed. Allow access in System Settings → Privacy & Security → Files & Folders (or Full Disk Access), then rescan."
+        return "macOS privacy protection kept CloudSpace out of \(list), so files there aren't listed. Allow access in System Settings → Privacy & Security → Files & Folders (or Full Disk Access), then rescan."
     }
 
     /// Disk images attached right now (`hdiutil info`), so a mounted installer is never offered.

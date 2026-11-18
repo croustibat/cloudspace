@@ -267,7 +267,7 @@ struct RestoreSheet: View {
                             Label(error.description, systemImage: "xmark.octagon.fill").foregroundStyle(.red)
                                 .fixedSize(horizontal: false, vertical: true)
                         } else if result != nil {
-                            Label("Ready. Major Tom copies it into a hidden folder next to the target, verifies every file against the manifest, then moves it into place. Nothing is overwritten, and the copy on the NAS stays.",
+                            Label("Ready. CloudSpace copies it into a hidden folder next to the target, verifies every file against the manifest, then moves it into place. Nothing is overwritten, and the copy on the NAS stays.",
                                   systemImage: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
                                 .fixedSize(horizontal: false, vertical: true)

@@ -110,7 +110,7 @@ public struct OffloadManifest: Codable, Sendable, Identifiable {
     public var skipped: [String]
     /// Extended attributes of a `.file` payload (a tar carries its own).
     public var fileXattrs: [String: Data]?
-    /// How to get it back without Major Tom.
+    /// How to get it back without CloudSpace.
     public var restoreCommand: String
     /// E.g. a hibernated project's reinstall commands.
     public var notes: [String]

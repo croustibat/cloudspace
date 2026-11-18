@@ -82,7 +82,7 @@ private struct ProjectSettings: View {
                 Text((model.settings.projectRootsAreAutomatic
                       ? "Detected automatically from the usual folders (~/Projects, ~/Developer, ~/Code, ~/src, ~/WebstormProjects, ~/IdeaProjects, …). Adding or removing one switches to your own list. "
                       : "")
-                     + "Major Tom looks for projects (a folder with .git, package.json, Podfile, Cargo.toml, …) up to \(ProjectScanner.maxContainerDepth) levels below these folders.")
+                     + "CloudSpace looks for projects (a folder with .git, package.json, Podfile, Cargo.toml, …) up to \(ProjectScanner.maxContainerDepth) levels below these folders.")
                     .foregroundStyle(.secondary)
             }
             Section("Staleness") {
@@ -144,7 +144,7 @@ private struct IgnoredSettings: View {
                     }
                 }
             } header: {
-                Text("Items Major Tom never offers")
+                Text("Items CloudSpace never offers")
             }
         }
         .formStyle(.grouped)
@@ -241,7 +241,7 @@ private struct AboutSettings: View {
                 LabeledContent("Source and releases") {
                     Link(Self.repository.absoluteString, destination: Self.repository)
                 }
-                Text("To update, run the install command from the README again, or download the latest release. Major Tom is open source (MIT) and comes with no warranty.")
+                Text("To update, run the install command from the README again, or download the latest release. CloudSpace is open source (MIT) and comes with no warranty.")
                     .foregroundStyle(.secondary)
             }
         }
@@ -262,7 +262,7 @@ private struct AccessSettings: View {
                     case .unknown: Label("Unknown", systemImage: "questionmark.circle").foregroundStyle(.secondary)
                     }
                 }
-                Text("Without it, the Trash and some app caches can't be measured. Major Tom never needs admin rights; anything that does is shown as a command for you to run.")
+                Text("Without it, the Trash and some app caches can't be measured. CloudSpace never needs admin rights; anything that does is shown as a command for you to run.")
                     .foregroundStyle(.secondary)
                 HStack {
                     Button("Open Privacy & Security…") { NSWorkspace.shared.open(FullDiskAccess.settingsURL) }
@@ -333,7 +333,7 @@ private struct AlertsSettings: View {
 
             Section {
                 Toggle(isOn: Binding(get: { watch.loginItemStatus.isOn }, set: { watch.setLaunchAtLogin($0) })) {
-                    Text("Open Major Tom at login")
+                    Text("Open CloudSpace at login")
                     Text("Keeps the menu bar item and the low-space check running.")
                 }
                 .disabled(watch.loginItemStatus == .unavailable)
@@ -379,7 +379,7 @@ private struct AlertsSettings: View {
         switch watch.notificationAuthorization {
         case .denied:
             HStack {
-                Label("Notifications for Major Tom are off in System Settings.", systemImage: "bell.slash")
+                Label("Notifications for CloudSpace are off in System Settings.", systemImage: "bell.slash")
                     .foregroundStyle(.orange)
                 Spacer()
                 Button("Open Notifications…") {

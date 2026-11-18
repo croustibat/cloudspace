@@ -28,7 +28,7 @@ enum Snapshotter {
             return parts.count == 2 ? NSSize(width: parts[0], height: parts[1]) : nil
         }
         for window in NSApp.windows where window.isVisible && !window.isSheet {
-            if let size, window.title.hasPrefix("Major Tom") { window.setContentSize(size) }
+            if let size, window.title.hasPrefix("CloudSpace") { window.setContentSize(size) }
             let f = screen.visibleFrame
             window.setFrameOrigin(NSPoint(x: f.minX + 40, y: max(f.minY, f.maxY - window.frame.height - 20)))
         }

@@ -28,7 +28,7 @@ struct DestinationBanner: View {
                 Button("Choose NAS Folder…") { FolderPickers.chooseNASFolder(model) }
             } else if !check.isReady {
                 Button("Open Finder") {
-                    // Connecting is the user's call (Finder → Go → Connect to Server, ⌘K); Major Tom never mounts anything.
+                    // Connecting is the user's call (Finder → Go → Connect to Server, ⌘K); CloudSpace never mounts anything.
                     NSWorkspace.shared.open(URL(filePath: "/System/Library/CoreServices/Finder.app"))
                 }
                 .help("Connect the share in Finder with Go → Connect to Server (⌘K), then Check Again")
@@ -360,7 +360,7 @@ private struct OffloadedRow: View {
         panel.canCreateDirectories = true
         panel.directoryURL = model.environment.context.home
         panel.prompt = "Restore Here"
-        panel.message = "Major Tom restores “\(URL(filePath: record.manifest.sourcePath).lastPathComponent)” into this folder. It never overwrites anything."
+        panel.message = "CloudSpace restores “\(URL(filePath: record.manifest.sourcePath).lastPathComponent)” into this folder. It never overwrites anything."
         if panel.runModal() == .OK, let url = panel.url { Task { await model.reviewRestore(record, into: url) } }
     }
 }
