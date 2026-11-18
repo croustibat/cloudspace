@@ -22,7 +22,8 @@ check as an error. SF Symbols must exist in macOS 15 (they'd render blank, not f
 - `Sources/MajorTomCLI` — the CLI's strict argument parser (per-command allowed flags in `CLI.commands`, usage
   text) and `CleanSelection` (`--item`/`--flagged` → exact items). Unknown/misspelt flags, missing values, repeated
   single-value flags and stray arguments are errors; a filter that matches nothing fails, never widens to the rule.
-- `Sources/majortom` — CLI commands (`main.swift`). Read-only except `clean --execute`.
+- `Sources/majortom` — CLI commands (`main.swift`). Read-only except `clean --execute` and `offload --evict --execute`
+  (frees local copies of archives already uploaded to iCloud Drive; deletes nothing).
 - `Tests/MajorTomCoreTests`, `Tests/GroundControlTests`, `Tests/MajorTomCLITests` — Swift Testing, fixture homes in
   `$TMPDIR` only.
 

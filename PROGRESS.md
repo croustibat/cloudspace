@@ -52,6 +52,20 @@ behaviour itself in `SPEC.md`. All milestones were built and verified in Novembe
   settings honoured, existing share still accepted, settings/history files untouched); fixture-empty
   snapshots of both empty states; `install.sh` tried against temp folders and `--dry-run` only.
 
+## iCloud Drive destination (cloudspace fork)
+- **Built:** a folder inside iCloud Drive (`~/Library/Mobile Documents/…`) is accepted as the offload destination
+  next to a mounted network share (`VolumeStatus.isICloud`, `ICloudDrive`); other local folders are still refused.
+  `CloudStorage` seam + `OffloadEngine.evictLocalCopies`: frees the local copy of an offloaded payload only once
+  macOS reports it uploaded (dry run by default, `manifest.json` never evicted, nothing deleted, logged to history).
+  Restore adds the re-download of an evicted archive to its free-space check; items over iCloud Drive's 50 GB file
+  limit are refused before copying. CLI `majortom offload --evict [--execute]`; "Free Local Copies" banner in the
+  Offloaded view.
+- **Verified:** 201 tests (9 new, fake iCloud folder + `FakeCloudStorage`); the macOS mechanism itself checked once
+  on a real Mac with a 5 MB throwaway file in iCloud Drive (uploaded → evicted to 0 bytes on disk → read back
+  identical). No real offload to iCloud Drive has been run yet.
+- **Open:** UI wording still says "NAS" in most places; no automatic eviction when an upload finishes; the offload
+  copy needs the item's size free on this Mac until it is uploaded and evicted.
+
 ## Ideas / not built
 - Real-life check of notifications, login item and the notification's Quick Clean action.
 - Know when launched as a login item (currently the window always opens).

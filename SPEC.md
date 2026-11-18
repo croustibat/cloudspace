@@ -155,6 +155,12 @@ removes (or clearly marks) the partial copy. Candidates: stale projects (hiberna
 cold large/old files. Offloaded list with verified restore (to the original or another folder) and import of
 manifests found on the share. No folder chosen → the Offload view asks for one.
 
+**iCloud Drive destination (fork). ✅** The destination may also be a folder in iCloud Drive. The offload itself is
+unchanged (copy → verify → manifest → Trash), but the copy lands on this Mac's disk and macOS uploads it; "Free
+Local Copies" / `majortom offload --evict --execute` then evicts the payload of every archive macOS reports as
+uploaded (never `manifest.json`, never anything not uploaded, nothing deleted). An evicted archive downloads again
+when restored. iCloud Drive's 50 GB per-file limit is enforced before copying.
+
 ## Done criteria for changes
 
 `swift build` and `swift test` pass with no new warnings; `scripts/bundle.sh` produces an app that launches; the

@@ -148,7 +148,7 @@ majortom rules [--json]
 majortom clean --rule <id> [--item <id>]... [--flagged] [--action <id>] [--execute] [--json]
 majortom history [--json]
 majortom projects [--stale] [--dirs] [--json]
-majortom offload [--candidates] [--json]
+majortom offload [--candidates] [--evict [--execute]] [--json]
 majortom help [<command>]
 ```
 
