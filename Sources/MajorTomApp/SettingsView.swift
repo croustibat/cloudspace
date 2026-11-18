@@ -414,7 +414,7 @@ struct NASSettings: View {
                     Button("Check Again") { model.refreshDestination() }
                 }
                 LabeledContent("Status") {
-                    Label(model.destinationCheck.isReady ? "Mounted network share" : "Not available",
+                    Label(model.destinationCheck.isReady ? (model.destinationIsICloud ? "iCloud Drive" : "Mounted network share") : "Not available",
                           systemImage: model.destinationCheck.isReady ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .foregroundStyle(model.destinationCheck.isReady ? .green : .orange)
                 }
@@ -422,7 +422,7 @@ struct NASSettings: View {
             } header: {
                 Text("NAS destination")
             } footer: {
-                Text("Must be a folder on a mounted network share (SMB, AFP or NFS). A folder on this Mac — like an empty mount point left behind in /Volumes when the share isn't mounted — is refused, so offloading can never fill the internal disk.")
+                Text("Must be a folder on a mounted network share (SMB, AFP or NFS) or a folder in iCloud Drive. Any other folder on this Mac — like an empty mount point left behind in /Volumes when the share isn't mounted — is refused. With iCloud Drive the copy is made on this Mac first and uploaded by macOS; its local copy can be freed from the Offloaded list once the upload is done.")
                     .foregroundStyle(.secondary)
             }
             Section {

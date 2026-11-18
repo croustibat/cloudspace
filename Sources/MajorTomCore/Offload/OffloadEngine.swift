@@ -110,6 +110,8 @@ public struct OffloadEngine: Sendable {
     /// The folder on the share; nil until the user chooses one (every offload then fails with `.notSet`).
     public var destination: URL?
     public var probe: any VolumeProbe
+    /// Upload state and eviction of copies in iCloud Drive.
+    public var cloud: any CloudStorage
     public var context: RuleContext
     public var rules: [Rule]
     public var git: any CommandRunner
@@ -121,12 +123,14 @@ public struct OffloadEngine: Sendable {
     /// Re-check the share every this many bytes.
     public var mountCheckInterval: Int64 = 64 * 1024 * 1024
 
-    public init(destination: URL?, probe: any VolumeProbe = LiveVolumeProbe(), context: RuleContext,
+    public init(destination: URL?, probe: any VolumeProbe = LiveVolumeProbe(), cloud: any CloudStorage = LiveCloudStorage(),
+                context: RuleContext,
                 rules: [Rule] = RuleCatalogue.all, git: any CommandRunner = ProcessRunner(), store: OffloadStore = OffloadStore(),
                 remover: any FileRemover = SystemFileRemover(), history: HistoryLog = HistoryLog(),
                 checksumCapBytes: Int64? = nil, hooks: Hooks = Hooks()) {
         self.destination = destination?.standardizedFileURL
         self.probe = probe
+        self.cloud = cloud
         self.context = context
         self.rules = rules
         self.git = git
@@ -214,6 +218,10 @@ public struct OffloadEngine: Sendable {
         case .ready(let s): status = s
         case let other:
             result.status = .failed(other.message)
+            return result
+        }
+        if status.isICloud, estimate > ICloudDrive.maxFileBytes {
+            result.status = .failed(OffloadError.refused("iCloud Drive doesn't take files over \(ByteFormat.string(ICloudDrive.maxFileBytes)); this one would be \(ByteFormat.string(estimate))").description)
             return result
         }
         let needed = estimate + max(256_000_000, estimate / 50)
@@ -383,7 +391,7 @@ public struct OffloadEngine: Sendable {
     func ensureSameShare(_ share: VolumeStatus) throws {
         let destination = try requireDestination()
         guard let now = probe.status(of: destination) else { throw OffloadError.shareChanged("\(destination.path) is gone") }
-        guard now.isNetwork, now.identity == share.identity else {
+        guard now.isOffloadTarget, now.identity == share.identity else {
             throw OffloadError.shareChanged("\(destination.path) is no longer \(share.mountedFrom)")
         }
     }
@@ -598,7 +606,11 @@ public struct OffloadEngine: Sendable {
             }
             if fm.fileExists(atPath: parent.path(percentEncoded: false)) {
                 let free = VolumeInfo.availableBytes(at: parent) ?? 0
-                let needed = manifest.contentBytes + max(200_000_000, manifest.contentBytes / 50)
+                var needed = manifest.contentBytes + max(200_000_000, manifest.contentBytes / 50)
+                // An archive evicted to iCloud is downloaded onto this Mac again while it is read.
+                if share.isICloud, let state = cloud.state(of: archiveDir.appending(path: manifest.payloadName)), !state.isLocal {
+                    needed += manifest.payloadBytes
+                }
                 if free < needed { throw OffloadError.insufficientSpace(needed: needed, available: free) }
             }
             guard execute else { return result }

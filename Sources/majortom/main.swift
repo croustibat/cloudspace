@@ -303,6 +303,31 @@ struct OffloadJSON: Encodable {
     var candidateBytes: Int64?
 }
 
+struct EvictJSON: Encodable {
+    struct Item: Encodable {
+        var id: String
+        var name: String
+        var payload: String
+        var status: String
+        var localBytes: Int64
+    }
+    var dryRun: Bool
+    var reclaimedBytes: Int64
+    var results: [Item]
+}
+
+func evictLabel(_ status: EvictionResult.Status) -> String {
+    switch status {
+    case .wouldEvict: "would free"
+    case .evicted: "freed"
+    case .alreadyEvicted: "already freed"
+    case .notUploaded: "still uploading"
+    case .notInICloud: "not in iCloud"
+    case .missing: "missing"
+    case .failed(let e): "failed: \(e)"
+    }
+}
+
 func offloadCommand(_ args: Args) async throws {
     let context = makeContext()
     let settings = context.settings
@@ -310,6 +335,32 @@ func offloadCommand(_ args: Args) async throws {
     let check = engine.checkDestination()
     let records = engine.store.records()
     let partials = check.isReady ? (engine.destination.map { OffloadLayout.partials(in: $0) } ?? []).map(\.path) : []
+    if args.has("--execute"), !args.has("--evict") {
+        throw CLIError("--execute only applies to offload --evict\n\n\(CLI.help(for: "offload"))")
+    }
+    if args.has("--evict") {
+        if args.has("--candidates") { throw CLIError("--evict can't be combined with --candidates\n\n\(CLI.help(for: "offload"))") }
+        let report = engine.evictLocalCopies(execute: args.has("--execute"))
+        if args.has("--json") {
+            try printJSON(EvictJSON(dryRun: report.dryRun, reclaimedBytes: report.reclaimedBytes, results: report.results.map {
+                EvictJSON.Item(id: $0.record.id.uuidString, name: $0.record.manifest.displayName,
+                               payload: $0.record.manifest.payloadPath, status: evictLabel($0.status), localBytes: $0.localBytes)
+            }))
+            return
+        }
+        print(report.dryRun ? "DRY RUN — nothing is changed without --execute." : "Freeing local copies of uploaded archives.")
+        for r in report.results {
+            print("  \(pad(evictLabel(r.status), 18))  \(lpad(fmt(r.localBytes), 9))  \(r.record.manifest.displayName)")
+            print("      \(r.record.manifest.payloadPath)")
+        }
+        if report.results.isEmpty { print("  nothing offloaded yet") }
+        if report.dryRun {
+            print("\nWould free \(fmt(report.evictableBytes)); \(report.waitingForUpload) still uploading.")
+        } else {
+            print("\nFreed \(report.evictedCount) local cop\(report.evictedCount == 1 ? "y" : "ies"); measured: \(fmt(report.reclaimedBytes)).")
+        }
+        return
+    }
     var candidates: [OffloadCandidate]?
     if args.has("--candidates") {
         if !args.has("--json") { FileHandle.standardError.write(Data("Looking for offload candidates…\n".utf8)) }
@@ -323,7 +374,7 @@ func offloadCommand(_ args: Args) async throws {
                                   candidateBytes: candidates.map { $0.reduce(0) { $0 + ($1.size ?? 0) } }))
         return
     }
-    print("Destination: \(engine.destination?.path ?? "not set (choose a NAS folder in the app's Settings → NAS)")")
+    print("Destination: \(engine.destination?.path ?? "not set (choose a NAS or iCloud Drive folder in the app's Settings → NAS)")")
     print("  \(check.isReady ? "ready" : "NOT READY"): \(check.message)")
     for p in partials { print("  incomplete copy: \(p)") }
     print("\nOffloaded (\(records.count)):")

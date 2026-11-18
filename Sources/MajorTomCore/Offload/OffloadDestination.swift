@@ -10,22 +10,54 @@ public struct VolumeStatus: Sendable, Equatable {
     public var mountedFrom: String
     /// Not a local file system (MNT_LOCAL clear) and a known network file system type.
     public var isNetwork: Bool
+    /// Inside iCloud Drive (`~/Library/Mobile Documents/…`): a folder on this Mac's own disk that macOS uploads, and
+    /// whose local copies can be evicted once they are in iCloud (`CloudStorage`).
+    public var isICloud: Bool
     public var isReadOnly: Bool
     public var availableBytes: Int64
     public var totalBytes: Int64
     /// Identifies this particular mount; a remount or a different volume at the same path changes it.
     public var identity: String
 
-    public init(mountPoint: String, fileSystem: String, mountedFrom: String, isNetwork: Bool, isReadOnly: Bool,
-                availableBytes: Int64, totalBytes: Int64, identity: String) {
+    public init(mountPoint: String, fileSystem: String, mountedFrom: String, isNetwork: Bool, isICloud: Bool = false,
+                isReadOnly: Bool, availableBytes: Int64, totalBytes: Int64, identity: String) {
         self.mountPoint = mountPoint
         self.fileSystem = fileSystem
         self.mountedFrom = mountedFrom
         self.isNetwork = isNetwork
+        self.isICloud = isICloud
         self.isReadOnly = isReadOnly
         self.availableBytes = availableBytes
         self.totalBytes = totalBytes
         self.identity = identity
+    }
+
+    /// Somewhere offloads may go: a mounted network share, or a folder in iCloud Drive.
+    public var isOffloadTarget: Bool { isNetwork || isICloud }
+}
+
+/// iCloud Drive as an offload destination. Its folders live on this Mac's own disk under
+/// `~/Library/Mobile Documents/`; macOS uploads what is put there, and a file that is in iCloud can have its local
+/// copy evicted (it stays visible in Finder and downloads again when it is read).
+public enum ICloudDrive {
+    /// iCloud Drive refuses files larger than this.
+    public static let maxFileBytes: Int64 = 50_000_000_000
+
+    public static func container(home: URL = FileManager.default.homeDirectoryForCurrentUser) -> URL {
+        home.appending(path: "Library/Mobile Documents", directoryHint: .isDirectory)
+    }
+
+    /// The folder Finder shows as "iCloud Drive".
+    public static func root(home: URL = FileManager.default.homeDirectoryForCurrentUser) -> URL {
+        container(home: home).appending(path: "com~apple~CloudDocs", directoryHint: .isDirectory)
+    }
+
+    /// Is `url` strictly inside `~/Library/Mobile Documents/` (after resolving symlinks)?
+    public static func contains(_ url: URL, home: URL = FileManager.default.homeDirectoryForCurrentUser) -> Bool {
+        let path = url.resolvingSymlinksInPath().standardizedFileURL.path(percentEncoded: false)
+        var base = container(home: home).resolvingSymlinksInPath().standardizedFileURL.path(percentEncoded: false)
+        if !base.hasSuffix("/") { base += "/" }
+        return path.hasPrefix(base) && path.count > base.count
     }
 }
 
@@ -54,6 +86,7 @@ public struct LiveVolumeProbe: VolumeProbe {
         return VolumeStatus(
             mountPoint: mountPoint, fileSystem: type, mountedFrom: str(fs.f_mntfromname),
             isNetwork: !local && Self.networkFileSystems.contains(type),
+            isICloud: local && ICloudDrive.contains(url),
             isReadOnly: (fs.f_flags & UInt32(MNT_RDONLY)) != 0,
             availableBytes: Int64(fs.f_bavail) * Int64(fs.f_bsize), totalBytes: Int64(fs.f_blocks) * Int64(fs.f_bsize),
             identity: "\(fs.f_fsid.val.0):\(fs.f_fsid.val.1):\(mountPoint)")
@@ -69,8 +102,11 @@ public final class FakeVolumeProbe: VolumeProbe, @unchecked Sendable {
     private var _available: Int64?
     private var _checks = 0
     private var _unmountAfterChecks: Int?
+    /// Report `root` as a folder in iCloud Drive (on the local disk) instead of an SMB share.
+    public let iCloud: Bool
 
-    public init(root: URL, mounted: Bool = true, availableBytes: Int64? = nil) {
+    public init(root: URL, mounted: Bool = true, availableBytes: Int64? = nil, iCloud: Bool = false) {
+        self.iCloud = iCloud
         self.root = root.standardizedFileURL
         _mounted = mounted
         _available = availableBytes
@@ -107,6 +143,12 @@ public final class FakeVolumeProbe: VolumeProbe, @unchecked Sendable {
                                 isNetwork: false, isReadOnly: false, availableBytes: VolumeInfo.availableBytes(at: url) ?? 0,
                                 totalBytes: VolumeInfo.totalBytes(at: url) ?? 0, identity: "local")
         }
+        if iCloud {
+            return VolumeStatus(mountPoint: "/System/Volumes/Data", fileSystem: "apfs", mountedFrom: "/dev/disk3s5",
+                                isNetwork: false, isICloud: true, isReadOnly: false,
+                                availableBytes: state.1 ?? VolumeInfo.availableBytes(at: url) ?? 0,
+                                totalBytes: VolumeInfo.totalBytes(at: url) ?? 0, identity: "fake-icloud:" + rootPath)
+        }
         return VolumeStatus(mountPoint: rootPath, fileSystem: "smbfs", mountedFrom: "//fixture@nas.local/MajorTom",
                             isNetwork: true, isReadOnly: false,
                             availableBytes: state.1 ?? VolumeInfo.availableBytes(at: url) ?? 0,
@@ -136,6 +178,8 @@ public enum DestinationCheck: Sendable, Equatable {
 
     public var message: String {
         switch self {
+        case .ready(let s) where s.isICloud:
+            "iCloud Drive. Copies are made on this Mac first (\(ByteFormat.string(s.availableBytes)) free), uploaded by macOS, then their local copy can be freed."
         case .ready(let s):
             "\(s.mountedFrom) (\(s.fileSystem)), \(ByteFormat.string(s.availableBytes)) free"
         case .notSet:
@@ -143,7 +187,7 @@ public enum DestinationCheck: Sendable, Equatable {
         case .missing(let p):
             "\(p) isn't there — the NAS share isn't mounted. Connect to it in Finder (⌘K), then check again."
         case .notNetwork(let p, let s):
-            "\(p) is on this Mac's own disk (\(s.fileSystem) at \(s.mountPoint)), not on the NAS. The share is probably not mounted; copying there would fill the internal disk."
+            "\(p) is on this Mac's own disk (\(s.fileSystem) at \(s.mountPoint)), not on the NAS or in iCloud Drive. The share is probably not mounted; copying there would fill the internal disk."
         case .readOnly(let s):
             "\(s.mountedFrom) is mounted read-only."
         }
@@ -154,7 +198,7 @@ public enum DestinationCheck: Sendable, Equatable {
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue,
               let status = probe.status(of: destination) else { return .missing(path) }
-        guard status.isNetwork, status.mountPoint != "/" else { return .notNetwork(path, status) }
+        guard status.isICloud || (status.isNetwork && status.mountPoint != "/") else { return .notNetwork(path, status) }
         if status.isReadOnly { return .readOnly(status) }
         return .ready(status)
     }

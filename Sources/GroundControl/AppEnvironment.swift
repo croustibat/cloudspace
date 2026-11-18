@@ -17,6 +17,8 @@ public struct AppEnvironment: Sendable {
     public var remover: any FileRemover
     /// "Is the offload destination a mounted network share?" Fixture mode fakes one inside the fixture folder.
     public var offloadProbe: any VolumeProbe
+    /// Upload state / eviction for offloads kept in iCloud Drive.
+    public var offloadCloud: any CloudStorage
     /// Local copies of offload manifests and their state.
     public var offloads: OffloadStore
     /// Test / dev seam (fixture `--fixture-slow-nas`): failure injection and throttling for offloads.
@@ -33,10 +35,12 @@ public struct AppEnvironment: Sendable {
                 hibernations: HibernationLog = HibernationLog(),
                 remover: any FileRemover = SystemFileRemover(),
                 offloadProbe: any VolumeProbe = LiveVolumeProbe(),
+                offloadCloud: any CloudStorage = LiveCloudStorage(),
                 offloads: OffloadStore = OffloadStore(),
                 offloadHooks: OffloadEngine.Hooks = .init()) {
         self.remover = remover
         self.offloadProbe = offloadProbe
+        self.offloadCloud = offloadCloud
         self.offloads = offloads
         self.offloadHooks = offloadHooks
         self.git = git
@@ -95,7 +99,7 @@ public struct AppEnvironment: Sendable {
         var context = self.context
         context.settings = settings
         return OffloadEngine(destination: settings.offloadDestinationURL,
-                             probe: offloadProbe, context: context, rules: rules, git: git, store: offloads,
+                             probe: offloadProbe, cloud: offloadCloud, context: context, rules: rules, git: git, store: offloads,
                              remover: remover, history: history, hooks: offloadHooks)
     }
 

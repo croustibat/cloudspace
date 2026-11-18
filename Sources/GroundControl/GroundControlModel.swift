@@ -62,6 +62,8 @@ public final class GroundControlModel {
     public internal(set) var offloadSession: OffloadSession?
     public internal(set) var restoreSession: RestoreSession?
     public internal(set) var offloadMessage: String?
+    /// iCloud Drive destination only: which offloaded archives still take space here, and whether they're uploaded.
+    public internal(set) var evictionPreview: EvictionReport?
     @ObservationIgnored var offloadTask: Task<Void, Never>?
 
     public init(environment: AppEnvironment) {

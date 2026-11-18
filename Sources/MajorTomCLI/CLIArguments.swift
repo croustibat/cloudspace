@@ -79,15 +79,18 @@ public enum CLI {
             """,
             booleans: ["--stale", "--dirs", "--json"]),
         CommandSpec(
-            name: "offload", synopsis: "majortom offload [--candidates] [--json]",
+            name: "offload", synopsis: "majortom offload [--candidates] [--evict [--execute]] [--json]",
             details: """
-            offload shows whether the NAS destination is a mounted network share, and what
-            has been offloaded (with each archive's restore command). --candidates also lists
-            what could be offloaded (stale projects, Xcode Archives, large cold files) with
-            sizes. It never copies, moves or deletes anything; offloading and restoring are
-            done from the app.
+            offload shows whether the destination is a mounted network share or a folder in
+            iCloud Drive, and what has been offloaded (with each archive's restore command).
+            --candidates also lists what could be offloaded (stale projects, Xcode Archives,
+            large cold files) with sizes. Offloading and restoring are done from the app.
+            --evict (iCloud Drive only) lists the offloaded archives that still take space on
+            this Mac and whether macOS has finished uploading them; it is a DRY RUN unless
+            --execute is given, which frees the local copy of the uploaded ones. Nothing is
+            deleted: the archives stay in iCloud Drive and download again on restore.
             """,
-            booleans: ["--candidates", "--json"]),
+            booleans: ["--candidates", "--evict", "--execute", "--json"]),
     ]
 
     public static func spec(_ name: String) -> CommandSpec? { commands.first { $0.name == name } }

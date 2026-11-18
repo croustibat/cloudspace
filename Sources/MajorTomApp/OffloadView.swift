@@ -15,7 +15,7 @@ struct DestinationBanner: View {
                 .font(.title3)
                 .foregroundStyle(check.isReady ? .green : .orange)
             VStack(alignment: .leading, spacing: 1) {
-                Text(check.isReady ? "NAS ready — \(model.offloadDestination?.path ?? "")"
+                Text(check.isReady ? "\(model.destinationIsICloud ? "iCloud Drive" : "NAS") ready — \(model.offloadDestination?.path ?? "")"
                      : check == .notSet ? "No NAS folder chosen" : "NAS not available")
                     .fontWeight(.semibold)
                 // No fixedSize here: above a List it inflates the window's content height (drawn off-window).
@@ -55,7 +55,7 @@ struct OffloadView: View {
                 ContentUnavailableView {
                     Label("No NAS folder chosen", systemImage: "externaldrive.badge.questionmark")
                 } description: {
-                    Text("Offloading copies stale projects, Xcode archives and cold files to a folder on a mounted network share, verifies the copy, and only then moves the original to the Trash. Connect the share in Finder (Go → Connect to Server, ⌘K), then choose a folder on it.")
+                    Text("Offloading copies stale projects, Xcode archives and cold files to a folder on a mounted network share or in iCloud Drive, verifies the copy, and only then moves the original to the Trash. For a NAS, connect the share in Finder (Go → Connect to Server, ⌘K), then choose a folder on it. For iCloud, choose a folder inside iCloud Drive.")
                 } actions: {
                     Button("Choose NAS Folder…") { FolderPickers.chooseNASFolder(model) }
                         .primaryActionButtonStyle()
@@ -233,6 +233,31 @@ struct OffloadedView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(.orange.opacity(0.08))
+                Divider()
+            }
+            if model.destinationIsICloud, let preview = model.evictionPreview,
+               preview.evictableBytes > 0 || preview.waitingForUpload > 0 {
+                HStack(spacing: 10) {
+                    Image(systemName: "icloud.and.arrow.up").foregroundStyle(.blue)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(preview.evictableBytes > 0
+                             ? "\(ByteFormat.string(preview.evictableBytes)) of uploaded archives still on this Mac"
+                             : "Waiting for iCloud to finish uploading")
+                            .fontWeight(.semibold)
+                        Text(preview.waitingForUpload > 0
+                             ? "\(preview.waitingForUpload) archive\(preview.waitingForUpload == 1 ? " is" : "s are") still uploading and stay\(preview.waitingForUpload == 1 ? "s" : "") here until macOS reports the upload done. Freeing removes only the local copy; the archive stays in iCloud Drive."
+                             : "Freeing removes only the local copy; the archive stays in iCloud Drive and downloads again when you restore it.")
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Check Again") { Task { await model.refreshEvictionPreview() } }
+                    Button("Free Local Copies") { Task { await model.freeLocalCopies() } }
+                        .disabled(preview.evictableBytes == 0)
+                }
+                .font(.callout)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.blue.opacity(0.08))
                 Divider()
             }
             if let message = model.offloadMessage {

@@ -16,7 +16,8 @@ enum FolderPickers {
         if panel.runModal() == .OK, let url = panel.url { model.addProjectRoot(url) }
     }
 
-    /// "Choose NAS Folder…": the offload destination. Validation (mounted network share) happens on every check.
+    /// "Choose NAS Folder…": the offload destination. Validation (mounted network share or iCloud Drive) happens on
+    /// every check.
     static func chooseNASFolder(_ model: GroundControlModel) {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -24,7 +25,7 @@ enum FolderPickers {
         panel.canCreateDirectories = true
         panel.directoryURL = model.offloadDestination ?? URL(filePath: "/Volumes", directoryHint: .isDirectory)
         panel.prompt = "Use This Folder"
-        panel.message = "Choose a folder on the mounted NAS share (connect it in Finder with ⌘K first)."
+        panel.message = "Choose a folder on the mounted NAS share (connect it in Finder with ⌘K first), or a folder in iCloud Drive."
         if panel.runModal() == .OK, let url = panel.url { model.setOffloadDestination(url) }
     }
 }

@@ -75,6 +75,7 @@ extension GroundControlModel {
         offloadRecords = records
         incompleteCopies = partials
         reachableOffloads = reachable
+        if check.status?.isICloud == true { await refreshEvictionPreview() } else { evictionPreview = nil }
     }
 
     /// Local records only (no share access).
@@ -262,6 +263,40 @@ extension GroundControlModel {
             ? "Removed \(r.removed) incomplete cop\(r.removed == 1 ? "y" : "ies") from the NAS."
             : "Removed \(r.removed); couldn't remove: \(r.failed.joined(separator: "; "))"
         await refreshDestinationNow()
+    }
+
+    // MARK: iCloud Drive
+
+    /// The destination is a folder in iCloud Drive (copies land on this Mac first and are evicted once uploaded).
+    public var destinationIsICloud: Bool { destinationCheck.status?.isICloud ?? false }
+
+    /// What `freeLocalCopies()` would do right now (no changes).
+    public func refreshEvictionPreview() async {
+        let engine = offloadEngine
+        evictionPreview = await Task.detached { engine.evictLocalCopies(execute: false) }.value
+    }
+
+    /// Evicts the local copy of every offloaded archive macOS has finished uploading to iCloud Drive. Archives still
+    /// uploading are left alone; nothing is deleted.
+    public func freeLocalCopies() async {
+        let engine = offloadEngine
+        let report = await Task.detached { engine.evictLocalCopies(execute: true) }.value
+        var parts: [String] = []
+        if report.evictedCount > 0 {
+            parts.append("Freed the local copy of \(report.evictedCount) archive\(report.evictedCount == 1 ? "" : "s") (\(ByteFormat.string(report.evictableBytes))); they stay in iCloud Drive.")
+        }
+        if report.waitingForUpload > 0 {
+            parts.append("\(report.waitingForUpload) still uploading to iCloud — try again later.")
+        }
+        let failed = report.results.compactMap { r -> String? in
+            if case .failed(let e) = r.status { return "\(r.record.manifest.displayName): \(e)" }
+            return nil
+        }
+        if !failed.isEmpty { parts.append("Couldn't free: " + failed.joined(separator: "; ")) }
+        offloadMessage = parts.isEmpty ? "No local copies to free." : parts.joined(separator: " ")
+        reloadHistory()
+        refreshDisk()
+        await refreshEvictionPreview()
     }
 
     // MARK: Fixture-only automation
