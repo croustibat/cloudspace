@@ -65,6 +65,10 @@ public final class GroundControlModel {
     /// iCloud Drive destination only: which offloaded archives still take space here, and whether they're uploaded.
     public internal(set) var evictionPreview: EvictionReport?
     @ObservationIgnored var offloadTask: Task<Void, Never>?
+    /// Polls iCloud upload state after an offload so local copies are freed as soon as they may be.
+    @ObservationIgnored var evictionWatchTask: Task<Void, Never>?
+    /// Seconds between polls while an archive is still uploading (tests shorten it).
+    @ObservationIgnored var evictionWatchInterval: Duration = .seconds(30)
 
     public init(environment: AppEnvironment) {
         self.environment = environment

@@ -39,6 +39,8 @@ public struct Settings: Codable, Sendable, Equatable {
     /// Offloaded files up to this size (MB) are re-read from the NAS and compared by SHA-256; bigger ones by size
     /// plus a hash of their first and last 4 MiB (M6).
     public var offloadChecksumCapMB: Int = 1024
+    /// iCloud Drive destination: free the local copy of an offloaded archive as soon as macOS reports it uploaded.
+    public var offloadAutoEvict: Bool = true
     /// Files at least this big (MB, decimal) in Downloads/Movies/Desktop/Documents are listed as large (M5).
     public var largeFileThresholdMB: Int = 500
     /// Files not opened or changed for this many days are listed as old (M5)…
@@ -68,6 +70,7 @@ public struct Settings: Codable, Sendable, Equatable {
             ?? (fileVersion < 2 ? Settings.legacyOffloadDestination : nil)
         ownBundleIDPrefixes = try c.decodeIfPresent([String].self, forKey: .ownBundleIDPrefixes) ?? d.ownBundleIDPrefixes
         offloadChecksumCapMB = try c.decodeIfPresent(Int.self, forKey: .offloadChecksumCapMB) ?? d.offloadChecksumCapMB
+        offloadAutoEvict = try c.decodeIfPresent(Bool.self, forKey: .offloadAutoEvict) ?? d.offloadAutoEvict
         largeFileThresholdMB = try c.decodeIfPresent(Int.self, forKey: .largeFileThresholdMB) ?? d.largeFileThresholdMB
         oldFileDays = try c.decodeIfPresent(Int.self, forKey: .oldFileDays) ?? d.oldFileDays
         oldFileMinimumMB = try c.decodeIfPresent(Int.self, forKey: .oldFileMinimumMB) ?? d.oldFileMinimumMB

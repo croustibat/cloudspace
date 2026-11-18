@@ -75,7 +75,12 @@ extension GroundControlModel {
         offloadRecords = records
         incompleteCopies = partials
         reachableOffloads = reachable
-        if check.status?.isICloud == true { await refreshEvictionPreview() } else { evictionPreview = nil }
+        if check.status?.isICloud == true {
+            await refreshEvictionPreview()
+            startEvictionWatchIfNeeded()
+        } else {
+            evictionPreview = nil
+        }
     }
 
     /// Local records only (no share access).
@@ -260,7 +265,7 @@ extension GroundControlModel {
         let engine = offloadEngine
         let r = await Task.detached { engine.removeIncompleteCopies() }.value
         offloadMessage = r.failed.isEmpty
-            ? "Removed \(r.removed) incomplete cop\(r.removed == 1 ? "y" : "ies") from the NAS."
+            ? "Removed \(r.removed) incomplete cop\(r.removed == 1 ? "y" : "ies") from the destination."
             : "Removed \(r.removed); couldn't remove: \(r.failed.joined(separator: "; "))"
         await refreshDestinationNow()
     }
@@ -269,6 +274,53 @@ extension GroundControlModel {
 
     /// The destination is a folder in iCloud Drive (copies land on this Mac first and are evicted once uploaded).
     public var destinationIsICloud: Bool { destinationCheck.status?.isICloud ?? false }
+
+    /// "iCloud Drive" or "NAS", for labels.
+    public var destinationName: String {
+        if destinationIsICloud { return "iCloud Drive" }
+        return destinationCheck == .notSet ? "a NAS or iCloud Drive" : "NAS"
+    }
+
+    public func setAutoEvict(_ on: Bool) {
+        updateSettings { $0.offloadAutoEvict = on }
+        if on { Task { await autoEvictTick() } } else { evictionWatchTask?.cancel() }
+    }
+
+    /// Automatic eviction (setting `offloadAutoEvict`, iCloud Drive destination only): frees the local copy of every
+    /// offloaded archive macOS reports as uploaded. Called by `SpaceWatch` on its regular check and by the watch
+    /// started after an offload. Does nothing while an offload or restore is running.
+    public func autoEvictTick() async {
+        guard settings.offloadAutoEvict, offloadSession?.isRunning != true, restoreSession?.isRunning != true else { return }
+        let engine = offloadEngine
+        let outcome = await Task.detached { () -> (preview: EvictionReport, done: EvictionReport?)? in
+            guard engine.checkDestination().status?.isICloud == true else { return nil }
+            let preview = engine.evictLocalCopies(execute: false)
+            guard preview.evictableBytes > 0 else { return (preview, nil) }
+            let done = engine.evictLocalCopies(execute: true)
+            return (engine.evictLocalCopies(execute: false), done)
+        }.value
+        guard let outcome else { return }
+        evictionPreview = outcome.preview
+        guard let done = outcome.done, done.evictedCount > 0 else { return }
+        offloadMessage = "Freed the local copy of \(done.evictedCount) uploaded archive\(done.evictedCount == 1 ? "" : "s") automatically (\(ByteFormat.string(done.evictableBytes))); \(done.evictedCount == 1 ? "it stays" : "they stay") in iCloud Drive."
+        reloadHistory()
+        refreshDisk()
+    }
+
+    /// While an archive is still uploading, check again every `evictionWatchInterval` until none is.
+    func startEvictionWatchIfNeeded() {
+        guard settings.offloadAutoEvict, evictionWatchTask == nil,
+              let preview = evictionPreview, preview.waitingForUpload > 0 || preview.evictableBytes > 0 else { return }
+        evictionWatchTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                await self.autoEvictTick()
+                guard self.settings.offloadAutoEvict, let p = self.evictionPreview, p.waitingForUpload > 0 else { break }
+                try? await Task.sleep(for: self.evictionWatchInterval)
+            }
+            self?.evictionWatchTask = nil
+        }
+    }
 
     /// What `freeLocalCopies()` would do right now (no changes).
     public func refreshEvictionPreview() async {

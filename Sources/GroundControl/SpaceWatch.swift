@@ -188,6 +188,8 @@ public final class SpaceWatch {
             model.startScanAll()
             model.startProjectScan()
         }
+        // iCloud Drive destination: free local copies of archives that finished uploading (no-op otherwise).
+        await model.autoEvictTick()
     }
 
     /// Weekly rescan: only when switched on, after a first full scan, and never while scanning or cleaning.

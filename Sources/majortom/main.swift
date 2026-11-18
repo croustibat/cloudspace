@@ -374,7 +374,7 @@ func offloadCommand(_ args: Args) async throws {
                                   candidateBytes: candidates.map { $0.reduce(0) { $0 + ($1.size ?? 0) } }))
         return
     }
-    print("Destination: \(engine.destination?.path ?? "not set (choose a NAS or iCloud Drive folder in the app's Settings → NAS)")")
+    print("Destination: \(engine.destination?.path ?? "not set (choose a NAS or iCloud Drive folder in the app's Settings → Offload)")")
     print("  \(check.isReady ? "ready" : "NOT READY"): \(check.message)")
     for p in partials { print("  incomplete copy: \(p)") }
     print("\nOffloaded (\(records.count)):")

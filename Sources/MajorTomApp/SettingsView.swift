@@ -14,7 +14,7 @@ struct SettingsView: View {
             Tab("Projects", systemImage: "moon.zzz", value: "projects") { ProjectSettings() }
             Tab("Files", systemImage: "doc.on.doc", value: "files") { FilesSettings() }
             Tab("Alerts", systemImage: "bell.badge", value: "alerts") { AlertsSettings() }
-            Tab("NAS", systemImage: "externaldrive.connected.to.line.below", value: "nas") { NASSettings() }
+            Tab("Offload", systemImage: "externaldrive.connected.to.line.below", value: "nas") { NASSettings() }
             Tab("Ignored", systemImage: "eye.slash", value: "ignored") { IgnoredSettings() }
             Tab("Access", systemImage: "lock.shield", value: "access") { AccessSettings() }
             Tab("About", systemImage: "info.circle", value: "about") { AboutSettings() }
@@ -420,9 +420,18 @@ struct NASSettings: View {
                 }
                 Text(model.destinationCheck.message).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             } header: {
-                Text("NAS destination")
+                Text("Destination")
             } footer: {
                 Text("Must be a folder on a mounted network share (SMB, AFP or NFS) or a folder in iCloud Drive. Any other folder on this Mac — like an empty mount point left behind in /Volumes when the share isn't mounted — is refused. With iCloud Drive the copy is made on this Mac first and uploaded by macOS; its local copy can be freed from the Offloaded list once the upload is done.")
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                Toggle("Free local copies automatically once uploaded", isOn: Binding(get: { model.settings.offloadAutoEvict },
+                                                                                       set: { model.setAutoEvict($0) }))
+            } header: {
+                Text("iCloud Drive")
+            } footer: {
+                Text("With an iCloud Drive destination, an offloaded archive first sits on this Mac while macOS uploads it. When this is on, CloudSpace frees the local copy as soon as macOS reports the upload done (checked every 30 seconds after an offload, and every few minutes otherwise). Nothing is deleted: the archive stays in iCloud Drive and downloads again when you restore it.")
                     .foregroundStyle(.secondary)
             }
             Section {
@@ -432,13 +441,13 @@ struct NASSettings: View {
                         Text(mb >= 1_000_000 ? "Any size" : ByteFormat.string(Int64(mb) * 1_000_000)).tag(mb)
                     }
                 }
-                Text("After copying, every file is read back from the NAS (bypassing this Mac's cache) and compared by SHA-256. Bigger files are compared by size plus their first and last 4 MiB, so verifying a huge video doesn't take as long as copying it twice.")
+                Text("After copying, every file is read back from the destination (bypassing this Mac's cache) and compared by SHA-256. Bigger files are compared by size plus their first and last 4 MiB, so verifying a huge video doesn't take as long as copying it twice.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } header: {
                 Text("Verification")
             }
-            Section("On the NAS") {
+            Section("At the destination") {
                 Text("<share>/projects|xcode-archives|files/<name>/<date-time>/ holds the copy and manifest.json. Folders (projects, archives, app bundles) are stored as one standard tar file — keeps symlinks, permissions, extended attributes, long and odd names and case intact, and is much faster over SMB than thousands of small files. Single files are copied as they are, with SMB-safe names; their real name and attributes are in the manifest. A folder ending in “.partial” is an incomplete copy.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

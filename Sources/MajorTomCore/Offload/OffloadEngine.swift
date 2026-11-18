@@ -5,11 +5,11 @@ import Foundation
 public struct OffloadProgress: Sendable, Equatable {
     public enum Phase: String, Sendable {
         case checking = "Checking"
-        case copying = "Copying to the NAS"
-        case verifying = "Verifying the copy on the NAS"
+        case copying = "Copying to the destination"
+        case verifying = "Verifying the copy"
         case finishing = "Writing the manifest"
         case trashing = "Moving the original to the Trash"
-        case restoring = "Copying back from the NAS"
+        case restoring = "Copying back"
         case checkingRestore = "Checking the restored copy"
     }
 

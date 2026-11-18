@@ -183,7 +183,7 @@ public enum DestinationCheck: Sendable, Equatable {
         case .ready(let s):
             "\(s.mountedFrom) (\(s.fileSystem)), \(ByteFormat.string(s.availableBytes)) free"
         case .notSet:
-            "No NAS folder chosen yet. Mount the share in Finder (⌘K), then choose a folder on it."
+            "No destination chosen yet. Choose a folder in iCloud Drive, or mount a network share in Finder (⌘K) and choose a folder on it."
         case .missing(let p):
             "\(p) isn't there — the NAS share isn't mounted. Connect to it in Finder (⌘K), then check again."
         case .notNetwork(let p, let s):

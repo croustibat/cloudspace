@@ -13,8 +13,8 @@ struct OffloadSheet: View {
                 case .reviewing(let report):
                     OffloadReview(session: session, report: report)
                 case .running(let progress, let cancelling):
-                    TransferProgressView(title: "Offloading to the NAS", progress: progress, cancelling: cancelling,
-                                         note: "The original of each item stays where it is until its copy on the NAS has been verified.",
+                    TransferProgressView(title: "Offloading", progress: progress, cancelling: cancelling,
+                                         note: "The original of each item stays where it is until its copy has been verified.",
                                          cancel: { model.cancelOffload() })
                 case .finished(let report):
                     OffloadResult(report: report)
@@ -78,7 +78,7 @@ private struct OffloadReview: View {
             .listStyle(.inset)
             Divider()
             VStack(alignment: .leading, spacing: 10) {
-                Label("Each item: copied to the NAS → every file verified (SHA-256 up to \(ByteFormat.string(Int64(model.settings.offloadChecksumCapMB) * 1_000_000)), size + first/last 4 MiB above) → manifest written on the NAS and on this Mac → original moved to the Trash. Nothing on the NAS is overwritten.",
+                Label("Each item: copied to the destination → every file verified (SHA-256 up to \(ByteFormat.string(Int64(model.settings.offloadChecksumCapMB) * 1_000_000)), size + first/last 4 MiB above) → manifest written next to the copy and on this Mac → original moved to the Trash. Nothing at the destination is overwritten.",
                       systemImage: "checklist")
                     .font(.callout).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -260,14 +260,14 @@ struct RestoreSheet: View {
                 case .reviewing(let result):
                     VStack(alignment: .leading, spacing: 14) {
                         Text("Restore \(m.displayName)").font(.title2.weight(.semibold))
-                        LabeledContent("From the NAS", value: m.payloadPath)
+                        LabeledContent("From", value: m.payloadPath)
                         LabeledContent("To", value: result?.target.path ?? "…")
                         LabeledContent("Size", value: "\(ByteFormat.string(m.contentBytes)) in \(m.fileCount) files")
                         if let error = result?.error {
                             Label(error.description, systemImage: "xmark.octagon.fill").foregroundStyle(.red)
                                 .fixedSize(horizontal: false, vertical: true)
                         } else if result != nil {
-                            Label("Ready. CloudSpace copies it into a hidden folder next to the target, verifies every file against the manifest, then moves it into place. Nothing is overwritten, and the copy on the NAS stays.",
+                            Label("Ready. CloudSpace copies it into a hidden folder next to the target, verifies every file against the manifest, then moves it into place. Nothing is overwritten, and the archived copy stays.",
                                   systemImage: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -287,7 +287,7 @@ struct RestoreSheet: View {
                     .padding(24)
                 case .running(let progress, let cancelling):
                     TransferProgressView(title: "Restoring \(m.displayName)", progress: progress, cancelling: cancelling,
-                                         note: "Nothing is moved into place until every file has been checked. The copy on the NAS is never deleted.",
+                                         note: "Nothing is moved into place until every file has been checked. The archived copy is never deleted.",
                                          cancel: { model.cancelRestore() })
                 case .finished(let result):
                     VStack(alignment: .leading, spacing: 14) {
@@ -295,7 +295,7 @@ struct RestoreSheet: View {
                         if let error = result.error {
                             Label(error.description, systemImage: "xmark.octagon.fill").foregroundStyle(.red)
                                 .fixedSize(horizontal: false, vertical: true)
-                            Text("Nothing was put in place; the partial copy was removed. The NAS copy is unchanged.")
+                            Text("Nothing was put in place; the partial copy was removed. The archived copy is unchanged.")
                                 .foregroundStyle(.secondary)
                         } else {
                             Label("\(m.displayName) is back at \(result.target.path), verified against its manifest (\(ByteFormat.string(result.bytes)) in \(TransferProgressView.duration(result.seconds))).",

@@ -117,7 +117,7 @@ struct GroundControlCommands: Commands {
             Button("Rescan Projects") { model.startProjectScan() }
                 .disabled(model.isScanningProjects)
             Divider()
-            Button("Offload Selected to NAS…") { Task { await model.reviewOffload() } }
+            Button("Offload Selected…") { Task { await model.reviewOffload() } }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
                 .disabled(model.checkedOffloadCandidates.isEmpty || model.offloadSession != nil)
             Divider()

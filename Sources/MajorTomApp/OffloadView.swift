@@ -11,12 +11,12 @@ struct DestinationBanner: View {
     var body: some View {
         let check = model.destinationCheck
         HStack(spacing: 10) {
-            Image(systemName: check.isReady ? "externaldrive.connected.to.line.below.fill" : "externaldrive.badge.xmark")
+            Image(systemName: check.isReady ? (model.destinationIsICloud ? "icloud.fill" : "externaldrive.connected.to.line.below.fill") : "externaldrive.badge.xmark")
                 .font(.title3)
                 .foregroundStyle(check.isReady ? .green : .orange)
             VStack(alignment: .leading, spacing: 1) {
                 Text(check.isReady ? "\(model.destinationIsICloud ? "iCloud Drive" : "NAS") ready — \(model.offloadDestination?.path ?? "")"
-                     : check == .notSet ? "No NAS folder chosen" : "NAS not available")
+                     : check == .notSet ? "No destination chosen" : "Destination not available")
                     .fontWeight(.semibold)
                 // No fixedSize here: above a List it inflates the window's content height (drawn off-window).
                 Text(check.isReady ? check.message : check.message.isEmpty ? "Checking…" : check.message)
@@ -25,7 +25,7 @@ struct DestinationBanner: View {
             }
             Spacer()
             if check == .notSet {
-                Button("Choose NAS Folder…") { FolderPickers.chooseNASFolder(model) }
+                Button("Choose Destination…") { FolderPickers.chooseNASFolder(model) }
             } else if !check.isReady {
                 Button("Open Finder") {
                     // Connecting is the user's call (Finder → Go → Connect to Server, ⌘K); CloudSpace never mounts anything.
@@ -53,11 +53,11 @@ struct OffloadView: View {
                 DestinationBanner()
                 Divider()
                 ContentUnavailableView {
-                    Label("No NAS folder chosen", systemImage: "externaldrive.badge.questionmark")
+                    Label("No destination chosen", systemImage: "externaldrive.badge.questionmark")
                 } description: {
                     Text("Offloading copies stale projects, Xcode archives and cold files to a folder on a mounted network share or in iCloud Drive, verifies the copy, and only then moves the original to the Trash. For a NAS, connect the share in Finder (Go → Connect to Server, ⌘K), then choose a folder on it. For iCloud, choose a folder inside iCloud Drive.")
                 } actions: {
-                    Button("Choose NAS Folder…") { FolderPickers.chooseNASFolder(model) }
+                    Button("Choose Destination…") { FolderPickers.chooseNASFolder(model) }
                         .primaryActionButtonStyle()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -130,8 +130,8 @@ private struct OffloadHeader: View {
         let bytes = checked.reduce(Int64(0)) { $0 + ($1.size ?? 0) }
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Offload to NAS").font(.title2.weight(.semibold))
-                Text("Copy → verify on the NAS → manifest on the NAS and here → only then move the original to the Trash. Anything that fails leaves the original where it is.")
+                Text("Offload to \(model.destinationName)").font(.title2.weight(.semibold))
+                Text("Copy → verify the copy → manifest next to it and here → only then move the original to the Trash. Anything that fails leaves the original where it is.")
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
             }
@@ -221,7 +221,7 @@ struct OffloadedView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("\(model.incompleteCopies.count) incomplete cop\(model.incompleteCopies.count == 1 ? "y" : "ies") on the NAS")
+                        Text("\(model.incompleteCopies.count) incomplete cop\(model.incompleteCopies.count == 1 ? "y" : "ies") at the destination")
                             .fontWeight(.semibold)
                         Text("Left by an interrupted offload (folders ending in “.partial”). Their originals were never touched.")
                             .foregroundStyle(.secondary)
@@ -270,7 +270,7 @@ struct OffloadedView: View {
             .overlay {
                 if model.offloadRecords.isEmpty {
                     ContentUnavailableView("Nothing offloaded yet", systemImage: "externaldrive",
-                                           description: Text("Things you offload to the NAS show up here, ready to restore."))
+                                           description: Text("Things you offload show up here, ready to restore."))
                 }
             }
         }
@@ -278,7 +278,7 @@ struct OffloadedView: View {
             await Task.yield()
             await model.refreshDestinationNow()
         }
-        .confirmationDialog("Remove the incomplete copies from the NAS?", isPresented: $confirmRemovePartials) {
+        .confirmationDialog("Remove the incomplete copies from the destination?", isPresented: $confirmRemovePartials) {
             Button("Remove \(model.incompleteCopies.count) Incomplete Cop\(model.incompleteCopies.count == 1 ? "y" : "ies")", role: .destructive) {
                 Task { await model.removeIncompleteCopies() }
             }
@@ -304,7 +304,7 @@ private struct OffloadedRow: View {
                 }
                 Text("From \(m.sourcePath.replacingOccurrences(of: model.environment.context.home.path, with: "~"))")
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                Text("On the NAS: \(m.archivePath)").font(.caption).foregroundStyle(.secondary)
+                Text("Archive: \(m.archivePath)").font(.caption).foregroundStyle(.secondary)
                     .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
                 Text("\(m.fileCount) files · \(m.format == .tar ? "one tar archive" : "plain copy") · verified \(m.createdAt.formatted(date: .abbreviated, time: .shortened))")
                     .font(.caption).foregroundStyle(.secondary)
@@ -322,7 +322,7 @@ private struct OffloadedRow: View {
                     Button("Restore") { Task { await model.reviewRestore(record) } }
                     Menu {
                         Button("Restore To…") { chooseFolder() }
-                        Button("Show on NAS") { NSWorkspace.shared.activateFileViewerSelecting([URL(filePath: m.payloadPath)]) }
+                        Button("Show Archive in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(filePath: m.payloadPath)]) }
                             .disabled(!reachable)
                         Button("Copy Restore Command") {
                             NSPasteboard.general.clearContents()
@@ -335,7 +335,7 @@ private struct OffloadedRow: View {
                 .controlSize(.small)
                 .disabled(!reachable || model.restoreSession != nil)
                 if !reachable {
-                    Text("NAS not mounted").font(.caption).foregroundStyle(.orange)
+                    Text("Archive not reachable").font(.caption).foregroundStyle(.orange)
                 }
             }
         }

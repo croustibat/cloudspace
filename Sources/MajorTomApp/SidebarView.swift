@@ -36,7 +36,7 @@ struct SidebarView: View {
                 }
                 .tag(SidebarSelection.projects)
             }
-            Section("NAS") {
+            Section("Archive") {
                 Label {
                     HStack {
                         Text("Offload")
@@ -50,9 +50,9 @@ struct SidebarView: View {
                         }
                     }
                 } icon: {
-                    Image(systemName: model.destinationCheck.isReady ? "externaldrive.connected.to.line.below" : "externaldrive.badge.xmark")
+                    Image(systemName: model.destinationCheck.isReady ? (model.destinationIsICloud ? "icloud" : "externaldrive.connected.to.line.below") : "externaldrive.badge.xmark")
                 }
-                .help(model.destinationCheck.isReady ? "Copy to the NAS, verify, then move to the Trash" : model.destinationCheck.message)
+                .help(model.destinationCheck.isReady ? "Copy to \(model.destinationName), verify, then move to the Trash" : model.destinationCheck.message)
                 .tag(SidebarSelection.offload)
                 Label("Offloaded", systemImage: "shippingbox.and.arrow.backward")
                     .badge(model.offloadRecords.isEmpty ? nil : Text("\(model.offloadRecords.count)"))
